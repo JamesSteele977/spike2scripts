@@ -1,0 +1,87 @@
+#include "libs/TrigsObj.s2s"
+#include "libs/ChanFuncs.s2s"
+#include "libs/FileObj.s2s"
+#include "libs/Counter.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.bringToFront();
+
+var TrigsObj stimTrigs;
+stimTrigs.setChan(2);
+stimTrigs.setStartEvent(0.0);
+stimTrigs.setEndEvent(MaxTime());
+var TrigsObj pulseTrigs;
+pulseTrigs.setChan(3);
+var Counter prrCounter;
+prrCounter.setSD(3.5);
+var rateChan%;
+var suffix$:="W";
+
+DlgCreate("Stimulus Characteristics");
+DlgChan(1, "Stimulus Triggers Channel", 2);
+DlgChan(2, "Pulse Triggers Channel", 2);
+DlgXValue(3, "Start Time");
+DlgXValue(4, "End Time");
+DlgString(5, "Suffix (eg: W for West)", 1);
+DlgXValue(6, "Rate Std dev");
+var ok% := DlgShow(stimTrigs.chan%, pulseTrigs.chan%, stimTrigs.start_event, stimTrigs.end_event, suffix$, prrCounter.sd);
+
+
+if ok% = 1 then
+    prrCounter.setSuffix(suffix$);
+    var prrMarkerChan% := createMarkerChannel("PRR("+suffix$+"): ");
+    var npulsesMarkerChan% := createMarkerChannel("npulses("+suffix$+"): ");
+    var gapMarkerChan% := createMarkerChannel("gap("+suffix$+"): ");
+    stimTrigs.setStartEvent(stimTrigs.start_event-BinSize(stimTrigs.chan%));
+    stimTrigs.setEndEvent(stimTrigs.end_event-BinSize(stimTrigs.chan%));
+    var i := 0;
+    while stimTrigs.start_event <= stimTrigs.end_event do
+        pulseTrigs.setStartEvent(stimTrigs.start_event-BinSize(pulseTrigs.chan%));
+        pulseTrigs.setEndEvent(NextTime(stimTrigs.chan%, stimTrigs.start_event));
+        pulseTrigs.setEndEvent(LastTime(pulseTrigs.chan%, pulseTrigs.end_event)+BinSize(pulseTrigs.chan%));
+        'pulseTrigs.log();
+        pulseTrigs.getEventCount();
+        if pulseTrigs.writeCountTo(npulsesMarkerChan%) < 0 then
+            PrintLog("Failed to write pulse count to channel: "+Str$(npulsesMarkerChan%)+"\n");
+            break;
+        endif
+        if pulseTrigs.writeGapTo(gapMarkerChan%) < 0 then
+            PrintLog("Failed to write gap to channel: "+Str$(gapMarkerChan%)+"\n");
+            break;
+        endif
+        if pulseTrigs.min_gap > 0 then
+            'prrCounter.print();
+            rateChan% := prrCounter.have(pulseTrigs.getRate());
+            'PrintLog("RateChan: "+Str$(rateChan%)+"\n");
+            if rateChan% = -1 then
+                if prrCounter.set(pulseTrigs.getRate()) < 0 then
+                    break;
+                else
+                    if pulseTrigs.writeRateEventTo(prrCounter.chans%[prrCounter.pos%-1]) < 0 then
+                        PrintLog("Failed to write rate event to channel: "+Str$(prrCounter.chans%[prrCounter.pos%-1])+"\n");
+                        break;
+                    else
+                        if pulseTrigs.writeRateTo(prrMarkerChan%) < 0 then
+                            PrintLog("Failed to write rate mark to channel: "+Str$(prrMarkerChan%)+"\n");
+                        endif
+                    endif
+                endif
+            else
+                if pulseTrigs.writeRateEventTo(prrCounter.chans%[rateChan%]) < 0 then
+                    PrintLog("Failed to write rate event to channel: "+Str$(prrCounter.chans%[rateChan%])+"\n");
+                    break;
+                else
+                    if pulseTrigs.writeRateTo(prrMarkerChan%) < 0 then
+                        PrintLog("Failed to write rate mark to channel: "+Str$(prrMarkerChan%)+"\n");
+                    endif
+                endif
+            endif
+        endif
+        'stimTrigs.log();
+        if stimTrigs.getNext() < 0 then
+            break;
+        endif
+        'PrintLog("\n");
+    wend
+endif

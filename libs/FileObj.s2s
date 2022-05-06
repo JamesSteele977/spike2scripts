@@ -1,0 +1,16 @@
+object FileObj
+    
+    var name$;
+    var view%;
+    
+    func setName(name$)
+    self.name$ := name$;
+    self.view% := FileOpen(self.name$, 0);
+    return self.view%
+    end
+    
+    func bringToFront()
+    return FrontView(self.view%)
+    end
+    
+objend

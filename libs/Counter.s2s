@@ -1,0 +1,55 @@
+#include "ChanFuncs.s2s"
+object Counter
+    var vals%[15];
+    var chans%[15];
+    var pos% := 0;
+    var suffix$;
+    var sd;
+    
+    func setSuffix(suffix$)
+    self.suffix$ := suffix$
+    end
+    
+    func setSD(value)
+    self.sd := value;
+    end
+    
+    func print()
+    PrintLog("pos: "+Str$(self.pos%)+"\n");
+    var i%;
+    for i% := 0 to 14 do
+        PrintLog("@"+Str$(i%)+": val="+Str$(self.vals%[i%])+"\tchan="+Str$(self.chans%[i%])+"\n");
+    next;
+    end
+    
+    func set(value%)
+        if self.pos% >= 14 then
+            return -1;
+        endif
+        self.vals%[self.pos%] := value%;
+        self.chans%[self.pos%] := createEventChannel(Str$(value%)+"PPS"+self.suffix$);
+        if self.chans%[self.pos%] < 0 then
+            return -1;
+        endif
+        self.pos% := self.pos% + 1;
+        return self.pos%;
+    end
+    
+    func have(value%)
+    var i%;
+    var value := value%;
+    var stdp := value + self.sd;
+    var stdn := value - self.sd;
+    for i% := 0 to self.pos% do
+        var comp := self.vals%[i%];
+        if comp <= 0 then
+            return -1;
+        endif
+        if comp <= stdp && comp >= stdn then
+            return i%;
+        endif
+    next;
+    return -1;
+    end
+    
+objend

@@ -1,0 +1,19 @@
+func createMarkerChannel(title$)
+var chan% := MemChan(8, 0);
+if chan% > 0 then
+    ChanShow(chan%);
+    ChanTitle$(chan%, title$);
+    DrawMode(chan%, 14, 0, 0, 0); '14 for text.
+    MarkShow(chan%, 0, 0);
+endif
+return chan%;
+end
+
+func createEventChannel(title$)
+var chan% := MemChan(3);
+if chan% > 0 then
+    ChanShow(chan%);
+    ChanTitle$(chan%, title$);
+endif
+return chan%;
+end

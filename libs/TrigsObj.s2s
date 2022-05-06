@@ -1,0 +1,102 @@
+object TrigsObj
+    
+    var chan%; 'Number of the event channel.
+    var max_gap:=0; ' Max gap between events.
+    var min_gap:=0; 'Min gap between event to compute pulse rate.
+    var event_count%:=0; 'Number of events between current event and next event.
+    var start_event:=0; 'Variable to hold current event time.
+    var end_event:=0; 'Variable to hold next event time.
+    
+    func log()
+    PrintLog("chan: "+Str$(self.chan%)+"\nstart: "+Str$(self.start_event)+"\nend: "+Str$(end_event)+"\n");
+    end
+    
+    func setChan(value%)
+    ' Set event channel number.
+    self.chan% := value%;
+    return self.chan%
+    end
+    
+    func setStartEvent(t)
+    ' Set current event time.
+    self.start_event := NextTime(self.chan%, t);
+    return self.start_event
+    end
+    
+    func setEndEvent(t)
+    ' Set next event time.
+    self.end_event := t;
+    return self.end_event
+    end
+    
+    func getNext()
+    ' Compute next event time.
+    self.start_event := NextTime(self.chan%, self.start_event);
+    return self.start_event
+    end
+    
+    func getRate()
+    if self.min_gap <= 0 then
+        return -1;
+    endif
+    var rate% := 1/(Ceil(self.min_gap*1000)/1000);
+    return rate%;
+    end
+    
+    func getEventCount()
+    ' Compute number of events between start_event and end_event.
+    ' Compute min and max gap between events.
+    var event1 := self.start_event;
+    var event2 := self.start_event;
+    var event_gap := event2 - event1;
+    self.event_count% := 0;
+    self.max_gap := 0;
+    self.min_gap := event_gap;
+    while event2 < self.end_event do
+        event2 := NextTime(chan%, event1);
+        if event2 < 0 then
+            break;
+        endif
+        if event2 > self.end_event then
+            self.event_count% := self.event_count% + 1;
+            break;
+        endif
+        self.event_count% := self.event_count% + 1;
+        event_gap := event2 - event1;
+        if self.event_count% = 1 then
+            ' When count reaches 2 update the min_gap to compute pulse rate.
+            self.min_gap := event_gap;
+            'PrintLog("min gap: "+Str$(self.min_gap)+"\n");
+        endif
+        if event_gap > self.max_gap then
+            ' When new max is found, update the max_gap.
+            self.max_gap := event_gap;
+        endif
+        'PrintLog("Count: "+Str$(self.event_count%)+"\tEvent1: "+Str$(event1)+"\tEvent2: "+Str$(event2)+"\n");
+        event1 := event2;
+    wend
+    'PrintLog("Count: "+Str$(self.event_count%)+"\tRate: "+Str$(self.getRate())+"\tGap: "+Str$(self.max_gap)+"\n");
+    return self.event_count%
+    end
+    
+    func writeCountTo(chan%)
+    var value$ := Str$(self.event_count%);
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    end
+    
+    func writeGapTo(chan%)
+    var value$ := Str$(self.max_gap);
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    end
+    
+    func writeRateTo(chan%)
+    var rate% := getRate();
+    var value$ := Str$(rate%);
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    end
+    
+    func writeRateEventTo(chan%)
+    return MemSetItem(chan%, 0, self.start_event);
+    end
+    
+objend

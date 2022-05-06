@@ -1,0 +1,76 @@
+object TrigsObj
+    
+    var chan%; 'Number of the event channel.
+    var max_gap:=0; ' Max gap between events.
+    var min_gap:=0; 'Min gap between event to compute pulse rate.
+    var event_count%:=0; 'Number of events between current event and next event.
+    var start_event:=0; 'Variable to hold current event time.
+    var end_event:=MaxTime(); 'Variable to hold next event time.
+    
+    func setChan(value%)
+    ' Set event channel number.
+    self.chan% := value%;
+    return self.chan%
+    
+    func setStartEvent(t)
+    ' Set current event time.
+    self.start_event := NextTime(self.chan%, t);
+    return self.start_event
+    
+    func setEndEvent(t)
+    ' Set next event time.
+    self.end_event := value;
+    return self.end_event
+    
+    func getNext()
+    ' Compute next event time.
+    self.start_event := NextTime(trig_chan%, self.start_event);
+    return self.start_event
+    
+    func getEventCount()
+    ' Compute number of events between start_event and end_event.
+    ' Compute min and max gap between events.
+    var event1 := self.start_event;
+    var event2 := self.start_event;
+    var event_gap := event2 - event1;
+    self.count% := 0;
+    self.max_gap := 0;
+    self.min_gap := event_gap;
+    while event2 <= self.end_event do
+        event2 := NextTime(chan%, event1);
+        if event2 > 0 then
+            self.count% := self.count% + 1;
+            event_gap := event2 - event1;
+            if self.count% == 2 then
+                ' When count reaches 2 update the min_gap to compute pulse rate.
+                self.min_gap := event_gap;
+            endif
+            if event_gap > self.max_gap then
+                ' When new max is found, update the max_gap.
+                self.max_gap := event_gap;
+            endif
+        else
+            return -1;
+        endif
+        event1 := event2;
+    wend
+    return self.count%
+    
+    func writeCountTo(chan%)
+    var value$ := Str$(self.count%);
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    
+    func writeGapTo(chan%)
+    var value$ := Str$(self.max_gap);
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    
+    func writeRateTo(chan%)
+    var value$;
+    if self.min_gap > 0 then
+        value$ := Str$(1/self.min_gap);
+    else
+        value$ := Str$(0);
+    endif    
+    return MemSetItem(chan%, 0, self.start_event, 0, value$);
+    
+objend
