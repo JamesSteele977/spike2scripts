@@ -1,0 +1,45 @@
+#include "libs/TrigsObj.s2s"
+#include "libs/Accumlator.s2s"
+#include "libs/FileObj.s2s"
+#include "libs/ChanFuncs.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.bringToFront();
+
+var TrigsObj stimTrigs;
+stimTrigs.setChan(2);
+stimTrigs.setStartEvent(0.0);
+stimTrigs.setEndEvent(MaxTime());
+
+var Accumlator accIinj;
+accIinj.setChan(6);
+accIinj.setMultiplier(1);
+accIinj.setRef(Cursor(0));
+
+DlgCreate("Injected Current");
+DlgChan(1, "Current Channel", 1);
+DlgReal(2, "Correction Multiplier", 0.1, 100);
+DlgChan(3, "Stimulus Triggers Channel", 2);
+DlgXValue(4, "Iinj = 0nA (reference) time");
+DlgXValue(5, "Start Time");
+DlgXValue(6, "End Time");
+
+var ok% := DlgShow(accIinj.chan%, accIinj.multiplier, stimTrigs.chan%, accIinj.ref_event, stimTrigs.start_event, stimTrigs.end_event);
+
+if ok% = 1 then
+    var IinjMarkerChan% := createMarkerChannel("Iinj(nA)");
+    stimTrigs.setStartEvent(stimTrigs.start_event - BinSize(stimTrigs.chan%));
+    stimTrigs.setEndEvent(stimTrigs.end_event - BinSize(stimTrigs.chan%));
+    while stimTrigs.start_event <= stimTrigs.end_event do
+        accIinj.setStartEvent(stimTrigs.start_event);
+        accIinj.setEndEvent(NextTime(stimTrigs.chan%, stimTrigs.start_event));
+        if accIinj.end_event < 0 then
+            break;
+        endif
+        if accIinj.call(IinjMarkerChan%) < 0 then
+            break;
+        endif
+        stimTrigs.setStartEvent(stimTrigs.start_event);
+    wend
+endif
