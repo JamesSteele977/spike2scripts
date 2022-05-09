@@ -11,7 +11,6 @@ object Accumlator
     func setRef(event)
     self.ref_event := event;
     NextTime(self.chan%, self.ref_event, self.ref_value);
-    PrintLog(Str$(self.ref_value));
     return self.ref_value;
     end
     
@@ -38,20 +37,18 @@ object Accumlator
     func resizeBuffer()
     self.size% := (1/BinSize(self.chan%))*(self.end_event - self.start_event);
     resize self.values[self.size%];
-    self.clear();
     return self.size%;
     end
     
     func writeToBuffer()
-    if self.size% <> Len(self.values) then
-        self.resizeBuffer();
-    endif
+    self.resizeBuffer();
+    self.clear();
     return ChanData(self.chan%, self.values, self.start_event, self.end_event, self.start_event);
     end
         
     func writeMeanToChan(chan%)
-    var count := self.size%;
-    var mean := ArrSum(self.values)/count;
+    var mean := 0;
+    ArrSum(self.values, mean);
     mean := Round((mean - self.ref_value)*1000*self.multiplier)/(1000*self.multiplier);
     var mean$ := Str$(mean);
     return MemSetItem(chan%, 0, self.start_event, 0, mean$);
