@@ -37,7 +37,7 @@ if ok% = 1 then
         if accIinj.end_event < 0 then
             break;
         endif
-        if accIinj.call(IinjMarkerChan%) < 0 then
+        if accIinj.call(IinjMarkerChan%, "mean") < 0 then
             break;
         endif
         stimTrigs.setStartEvent(stimTrigs.start_event);

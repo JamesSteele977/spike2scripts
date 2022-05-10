@@ -54,9 +54,16 @@ object Accumlator
     return MemSetItem(chan%, 0, self.start_event, 0, mean$);
     end
     
-    func call(chan%)
+    func writeFFTMaxToChan(chan%)
+    ArrFFT(self.values, 1);
+    end
+    
+    func call(chan%, process$)
     if self.writeToBuffer() >= 0 then
-        return writeMeanToChan(chan%);
+        docase
+        case process$ = "mean" then return writeMeanToChan(chan%);
+        case process$ = "FFTMax" then return writeFFTMaxToChan(chan%);
+        endcase
     else
         return -1;
     endif
