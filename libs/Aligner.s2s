@@ -1,0 +1,44 @@
+object Aligner
+    
+    var chan%;
+    var refChan%;
+    var start_event;
+    var end_event;
+    
+    func setChan(chan%);
+    self.chan% := chan%;
+    end
+    
+    func setRefChan(chan%)
+    self.refChan% := chan%;
+    end
+    
+    func setStartEvent(event)
+    self.start_event := event;
+    end
+    
+    func setEndEvent(event)
+    self.end_event := event;
+    end
+    
+    func finish()
+    ChanProcessClear(self.chan%, 0);
+    end
+    
+    func align()
+    var chan_event := NextTime(self.chan%, self.start_event);
+    if chan_event < 0 then
+        PrintLog("Next time in channel: "+Str$(self.chan%)+" does not exist.\n");
+        return -1;
+    endif
+    var ref_event := NextTime(self.refChan%, self.start_event);
+    if ref_event < 0 then
+        PrintLog("Next time in channel: "+Str$(self.refChan%)+" does not exist.\n");
+        return -1;
+    endif
+    self.finish()
+    'PrintLog("Ref: "+Str$(ref_event)+" event: "+Str$(chan_event)+"\n");
+    return ChanProcessAdd(chan%, 4, (ref_event - chan_event));
+    end
+
+objend;    

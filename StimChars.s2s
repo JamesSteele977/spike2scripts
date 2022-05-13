@@ -2,6 +2,7 @@
 #include "libs/ChanFuncs.s2s"
 #include "libs/FileObj.s2s"
 #include "libs/Counter.s2s"
+#include "libs/Aligner.s2s"
 
 var FileObj file;
 file.setName(FileName$(3));
@@ -18,6 +19,10 @@ prrCounter.setSD(3.5);
 var rateChan%;
 var suffix$:="W";
 
+var Aligner trigAligner;
+trigAligner.setStartEvent(Cursor(1));
+trigAligner.setEndEvent(Cursor(2));
+
 DlgCreate("Stimulus Characteristics");
 DlgChan(1, "Stimulus Triggers Channel", 2);
 DlgChan(2, "Pulse Triggers Channel", 2);
@@ -25,10 +30,15 @@ DlgXValue(3, "Start Time");
 DlgXValue(4, "End Time");
 DlgString(5, "Suffix (eg: W for West)", 1);
 DlgXValue(6, "Rate Std dev");
-var ok% := DlgShow(stimTrigs.chan%, pulseTrigs.chan%, stimTrigs.start_event, stimTrigs.end_event, suffix$, prrCounter.sd);
+DlgXValue(7, "Aligner start time");
+DlgXValue(8, "Aligner end time");
+var ok% := DlgShow(stimTrigs.chan%, pulseTrigs.chan%, stimTrigs.start_event, stimTrigs.end_event, suffix$, prrCounter.sd, trigAligner.start_event, trigAligner.end_event);
 
 
 if ok% = 1 then
+    trigAligner.setChan(pulseTrigs.chan%);
+    trigAligner.setRefChan(stimTrigs.chan%);
+    trigAligner.align();
     prrCounter.setSuffix(suffix$);
     var prrMarkerChan% := createMarkerChannel("PRR("+suffix$+"): ");
     var npulsesMarkerChan% := createMarkerChannel("npulses("+suffix$+"): ");
@@ -38,8 +48,8 @@ if ok% = 1 then
     var i := 0;
     while stimTrigs.start_event <= stimTrigs.end_event do
         pulseTrigs.setStartEvent(stimTrigs.start_event-BinSize(pulseTrigs.chan%));
-        pulseTrigs.setEndEvent(NextTime(stimTrigs.chan%, stimTrigs.start_event));
-        pulseTrigs.setEndEvent(LastTime(pulseTrigs.chan%, pulseTrigs.end_event)+BinSize(pulseTrigs.chan%));
+        pulseTrigs.setEndEvent(NextTime(stimTrigs.chan%, stimTrigs.start_event)-BinSize(pulseTrigs.chan%));
+        'pulseTrigs.setEndEvent(LastTime(pulseTrigs.chan%, pulseTrigs.end_event)+BinSize(pulseTrigs.chan%));
         'pulseTrigs.log();
         pulseTrigs.getEventCount();
         if pulseTrigs.writeCountTo(npulsesMarkerChan%) < 0 then
@@ -84,4 +94,5 @@ if ok% = 1 then
         endif
         'PrintLog("\n");
     wend
+    trigAligner.finish();
 endif

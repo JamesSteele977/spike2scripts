@@ -72,10 +72,10 @@ object TrigsObj
             ' When new max is found, update the max_gap.
             self.max_gap := event_gap;
         endif
-        'PrintLog("Count: "+Str$(self.event_count%)+"\tEvent1: "+Str$(event1)+"\tEvent2: "+Str$(event2)+"\n");
+        'PrintLog("tstart: "+Str$(self.start_event)+"\t tend: "+Str$(self.end_event)+"\t event1: "+Str$(event1)+"\t event2: "+Str$(event2)+"\t Count: "+Str$(self.event_count%)+"\tRate: "+Str$(self.getRate())+"\tGap: "+Str$(self.max_gap)+"\n");
         event1 := event2;
     wend
-    'PrintLog("Count: "+Str$(self.event_count%)+"\tRate: "+Str$(self.getRate())+"\tGap: "+Str$(self.max_gap)+"\n");
+    'PrintLog("tstart: "+Str$(self.start_event)+"\t tend: "+Str$(self.end_event)+"\t Count: "+Str$(self.event_count%)+"\tRate: "+Str$(self.getRate())+"\tGap: "+Str$(self.max_gap)+"\n");
     return self.event_count%
     end
     
