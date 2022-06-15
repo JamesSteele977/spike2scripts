@@ -1,0 +1,41 @@
+'Deletes any spurious pulse triggers that are minTime apart from the pulse triggers channel.
+#include "libs/FileObj.s2s"
+#include "libs/ChanFuncs.s2s"
+#include "libs/TrigsObj.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.bringToFront();
+
+var TrigsObj pulseTrigs;
+pulseTrigs.setChan(3);
+var TrigsObj newPulseTrigs;
+newPulseTrigs.start_event := 0.0;
+newPulseTrigs.end_event := MaxTime();
+
+var minTime := 0.002;
+var nextPulseTime := 0;
+
+
+DlgCreate("Pulse Trigger Cleaner.");
+DlgChan(1, "Pulse Triggers Channel", 2);
+DlgXValue(2, "Min time for trigger removal");
+DlgXValue(3, "Start Time");
+DlgXValue(4, "End Time");
+var ok% := DlgShow(pulseTrigs.chan%, minTime, newPulseTrigs.start_event, newPulseTrigs.end_event);
+
+newPulseTrigs.setChan(createEventChannelFrom("PlsTrigs", pulseTrigs.chan%));
+
+
+if ok% = 1 then
+while newPulseTrigs.start_event <= newPulseTrigs.end_event do
+    newPulseTrigs.setStartEvent(newPulseTrigs.start_event);
+    nextPulseTime := NextTime(newPulseTrigs.chan%, newPulseTrigs.start_event);
+    if nextPulseTime < 0 then
+        break;
+    endif;
+    if (nextPulseTime - newPulseTrigs.start_event) < minTime then
+        MemDeleteTime(newPulseTrigs.chan%, 3, newPulseTrigs.start_event+BinSize(newPulseTrigs.chan%), nextPulseTime+BinSize(newPulseTrigs.chan%));
+    endif;
+wend;
+endif;

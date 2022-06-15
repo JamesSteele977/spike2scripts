@@ -94,5 +94,5 @@ if ok% = 1 then
         endif
         'PrintLog("\n");
     wend
-    trigAligner.finish();
+    'trigAligner.finish();
 endif

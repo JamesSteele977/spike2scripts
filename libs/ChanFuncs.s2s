@@ -17,3 +17,13 @@ if chan% > 0 then
 endif
 return chan%;
 end
+
+func createEventChannelFrom(title$, sourceChan%)
+var chan% := MemChan(3);
+if chan% > 0 then
+    ChanShow(chan%);
+    ChanTitle$(chan%, title$);
+    MemImport(chan%, sourceChan%, 0.0, MaxTime()); 
+endif;
+return chan%
+end
