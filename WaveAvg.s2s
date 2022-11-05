@@ -1,0 +1,62 @@
+#include "libs/FileObj.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.bringToFront();
+
+var TrigsObj stimTrigs;
+
+var wave_chan%;
+var duration;
+var samples%;
+var avg%;
+
+var cursor12% := 1;
+var cursor34% := 1;
+var cursor56% := 1;
+var cursor78% := 1;
+var cursor90% := 1;
+
+DlgCreate("Waveform Averager");
+DlgChan(1, "Waveform Channel", 1);
+DlgChan(2, "Rate trigger Channel", 2);
+DlgXValue(3, "Duration of Average");
+DlgCheck(4, "Cursor: 1-2");
+DlgCheck(5, "Cursor: 3-4");
+DlgCheck(6, "Cursor: 5-6");
+DlgCheck(7, "Cursor: 7-8");
+DlgCheck(8, "Cursor: 9-0");
+var ok% := DlgShow(wave_chan%, strimTrigs.chan%, duration, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%);
+
+if ok% = 1 then
+    samples% := duration*BinSize(wave_chan%);
+    PrintLog(samples%);
+    avg% := SetAverage(wave_chan%, samples%, 0, stimTrigs.chan%, 1, 1);
+    if cursor12% = 1 then
+        Process(Cursor(1), Cursor(2), 0, 1);
+    endif
+    if cursor34% = 1 then
+        Process(Cursor(3), Cursor(4), 0, 1);
+    endif
+    if cursor56% = 1 then
+        Process(Cursor(5), Cursor(6), 0, 1);
+    endif
+    if cursor78% = 1 then
+        Process(Cursor(7), Cursor(8), 0, 1);
+    endif
+    if cursor90% = 1 then
+        Process(Cursor(9), Cursor(0), 0, 1);
+    endif
+endif
+'var v20%; 'View created by SetAverage
+'var v14% := ViewFind("05.03.12_2 part_1 interval counting[32-bit]");
+'FrontView(v14%);
+'WindowVisible(3);
+'Window(0.755814, 2.03443,88.5465, 69.1706);
+'v20%:=SetAverage(13,12000,0, 14,1,1);
+'WindowVisible(1);
+Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
+'Process(View(-1).Cursor(3), View(-1).Cursor(4), 0, 1);
+'Process(View(-1).Cursor(5), View(-1).Cursor(6), 0, 1);
+'Process(View(-1).Cursor(7), View(-1).Cursor(8), 0, 1);
+'Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
