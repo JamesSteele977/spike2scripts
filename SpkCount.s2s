@@ -8,17 +8,17 @@ file.setPath(FileName$(-1));
 file.bringToFront();
 
 var SaveObj saver;
-
 var subFolder$ := "baseline2";
-var saveName$ := "-45dB_600Hz_10msPD_10pulses_10pps_0nA";
+var saveName$ := "-45dB_600Hz_10msPD_10pulses_5pps_0nA_SpkCnt";
 
+var TrigsObj spkTrigs;
+spkTrigs.setChan(12);
 var TrigsObj stimTrigs;
 stimTrigs.setChan(14);
-
-var waveChan% := 13;
+var nbins% := 1;
 var duration := 1.2;
-var samples%;
-var avg%;
+var offset := 0.0;
+var flags% := 2;
 
 var cursor12% := 1;
 var cursor34% := 1;
@@ -26,22 +26,27 @@ var cursor56% := 0;
 var cursor78% := 0;
 var cursor90% := 0;
 
-DlgCreate("Waveform Averager");
-DlgChan(1, "Waveform Channel", 1);
+var spkCntView%;
+
+DlgCreate("Spike PSTH");
+DlgChan(1, "SpkTrigs Channel", 2);
 DlgChan(2, "Rate trigger Channel", 2);
-DlgXValue(3, "Duration of Average");
-DlgCheck(4, "Cursor: 1-2");
-DlgCheck(5, "Cursor: 3-4");
-DlgCheck(6, "Cursor: 5-6");
-DlgCheck(7, "Cursor: 7-8");
-DlgCheck(8, "Cursor: 9-0");
-DlgString(9, "Results subfolder", 256);
-DlgString(10, "File Save Name", 256);
-var ok% := DlgShow(waveChan%, stimTrigs.chan%, duration, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%, subFolder$, saveName$);
+DlgInteger(3, "nBins", 1, 10000);
+DlgXValue(4, "Duration of PSTH");
+DlgXValue(5, "Offset time");
+DlgInteger(6, "flags", 0, 16);
+DlgCheck(7, "Cursor: 1-2");
+DlgCheck(8, "Cursor: 3-4");
+DlgCheck(9, "Cursor: 5-6");
+DlgCheck(10, "Cursor: 7-8");
+DlgCheck(11, "Cursor: 9-0");
+DlgString(12, "Results subfolder", 256);
+DlgString(13, "File Save Name", 256);
+
+var ok% := DlgShow(spkTrigs.chan%, stimTrigs.chan%, nbins%, duration, offset, flags%, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%, subFolder$, saveName$);
 
 if ok% = 1 then
-    samples% := duration*(1/BinSize(waveChan%));
-    avg% := SetAverage(waveChan%, samples%, 0, stimTrigs.chan%, 1, 1);
+    spkCntView% := SetPsth(spkTrigs.chan%, nbins%, duration, offset, stimTrigs.chan%, flags%);
     if cursor12% = 1 then
         Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
     endif
@@ -57,7 +62,7 @@ if ok% = 1 then
     if cursor90% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
-    FrontView(avg%);
+    FrontView(spkCntView%);
     saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
     saver.setSaveName(saveName$);
     saver.save();

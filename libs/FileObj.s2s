@@ -1,11 +1,16 @@
 object FileObj
     
+    var path$;
     var name$;
     var view%;
     
+    func setPath(path$)
+    self.path$ := path$;
+    end
+    
     func setName(name$)
     self.name$ := name$;
-    self.view% := FileOpen(self.name$, 0);
+    self.view% := ViewFind(self.name$);
     return self.view%
     end
     

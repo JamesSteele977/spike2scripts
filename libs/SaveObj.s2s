@@ -1,0 +1,20 @@
+object SaveObj
+    
+    var path$;
+    var name$;
+    
+    func setSavePath(path$)
+    self.path$ := path$;
+    FilePathSet(self.path$);
+    end
+    
+    func setSaveName(name$)
+    self.name$ := name$;
+    end
+    
+    func save()
+    FileSaveAs(self.name$+".srf", 4);
+    FileSaveAs(self.name$+".txt", 1);
+    end
+    
+objend
