@@ -1,0 +1,93 @@
+'Composed by Dr. Rishi K. Alluri
+'Derived from Dr. Gary J. Rose's SpikeRem script.
+var Vm_chan%:=13, spkTrigChan%:=14, ok%, Vm_chan_filt%, Vm_chan_result%;
+var pre_time:=0.03, post_time:=0.03, spk_time, start_time, end_time:=MaxTime(), sTime, eTime;
+var median_tau:=0.01, smooth_tau:=0.01;
+var delt := NextTime(1, 0.0);
+var data_duration, data_samples%;
+
+func replicate_channel(fromChan%, title$, sTime, eTime)
+    var newChan% := MemChan(0, fromChan%);
+    if newChan% > 0 then
+        MemImport(newChan%, fromChan%, sTime, eTime);
+        ChanTitle$(newChan%, title$);
+        ChanShow(newChan%);
+        Optimise(newChan%);
+    endif
+    return newChan%;
+end
+
+func median_filter(chan%, tau)
+    return ChanProcessAdd(chan%, 9, tau);
+end
+
+func smooth_filter(chan%, tau)
+    return ChanProcessAdd(chan%, 1, tau);
+end
+
+func substitute_data(fromChan%, toChan%, sTime, eTime, delt)
+    var data_duration := eTime - sTime;
+    var data_samples% := Floor((1/delt)*data_duration);
+    if data_samples% <= 0 then
+        return -1;
+    endif
+    var data[data_samples%]; ArrConst(data, 0.0);
+    var ok% := ChanData(Vm_chan_filt%, data, sTime, eTime);
+    PrintLog(data);
+    if ok% > 0 then
+        return ChanWriteWave(Vm_chan_result%, data, sTime);
+    else
+        return -1;
+    endif
+end
+
+if delt > 0 then
+    DlgCreate("Spike Removal Options");
+    DlgChan(1, "Vm channel to remove spikes from", 1);
+    DlgChan(2, "Spike triggers channel", 2);
+    DlgXValue(3, "Pre spike time to replace data");
+    DlgXValue(4, "Post spike time to replace data");
+    DlgXValue(5, "Median filter tau");
+    DlgXValue(6, "Smoothing filter tau");
+    DlgXValue(7, "Start Time");
+    DlgXValue(8, "End Time");
+    ok% := DlgShow(Vm_chan%, spkTrigChan%, pre_time, post_time, median_tau, smooth_tau, start_time, end_time);
+    while ok% = 1 do
+        
+        Vm_chan_filt% := replicate_channel(Vm_chan%, "Vm Filt M&S", 0.0, MaxTime());
+        if Vm_chan_filt% <= 0 then
+            break;
+        endif
+        
+        Vm_chan_result% := replicate_channel(Vm_chan%, "VmSpRm", 0.0, MaxTime());
+        if Vm_chan_result% <= 0 then
+            break;
+        endif
+                
+        if median_filter(Vm_chan_filt%, median_tau) < 0 then
+            break;
+        endif
+        
+        if smooth_filter(Vm_chan_filt%, smooth_tau) < 0 then
+            break;
+        endif
+        
+        spk_time := NextTime(spkTrigChan%, start_time);
+        while spk_time+post_time <= end_time do
+            sTime := spk_time-pre_time;
+            eTime := spk_time+post_time;
+            if substitute_data(Vm_chan_filt%, Vm_chan_result%, sTime, eTime, delt) < 0 then
+                break;
+            endif
+            spk_time := NextTime(spkTrigChan%, spk_time);
+        wend
+        
+        ok% := -1;
+    wend
+else
+    PrintLog("SpkRem Error: The first sample time in the channel: "+Str$(1)+" is <= 0, please use a different channel to compute delt.");
+    DlgCreate("Error computing SpkRm!");
+    var text$ := "SpkRem Error: The first sample time in the channel: "+Str$(1)+" is <= 0, please use a different channel to compute delt.";
+    DlgText(text$, 0, 0);
+    DlgShow();
+endif
