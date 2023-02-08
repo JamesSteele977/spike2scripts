@@ -9,16 +9,18 @@ file.bringToFront();
 
 var SaveObj saver;
 
-var subFolder$ := "baseline2";
-var saveName$ := "-45dB_600Hz_10msPD_10pulses_10pps_0nA";
+var subFolder$ := "baseline";
+var saveName$ := "-24dB_200Hz_20msPD_6pulses_35pps_50msGap_0nA";
 
 var TrigsObj stimTrigs;
-stimTrigs.setChan(14);
+stimTrigs.setChan(10);
 
 var waveChan% := 13;
-var duration := 1.2;
+var stimChan% := 1;
+var duration := 0.98;
 var samples%;
-var avg%;
+var waveAvg%;
+var stimAvg%;
 
 var cursor12% := 1;
 var cursor34% := 1;
@@ -27,21 +29,22 @@ var cursor78% := 0;
 var cursor90% := 0;
 
 DlgCreate("Waveform Averager");
-DlgChan(1, "Waveform Channel", 1);
-DlgChan(2, "Rate trigger Channel", 2);
-DlgXValue(3, "Duration of Average");
-DlgCheck(4, "Cursor: 1-2");
-DlgCheck(5, "Cursor: 3-4");
-DlgCheck(6, "Cursor: 5-6");
-DlgCheck(7, "Cursor: 7-8");
-DlgCheck(8, "Cursor: 9-0");
-DlgString(9, "Results subfolder", 256);
-DlgString(10, "File Save Name", 256);
-var ok% := DlgShow(waveChan%, stimTrigs.chan%, duration, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%, subFolder$, saveName$);
+DlgChan(1, "Vm Waveform Channel", 1);
+DlgChan(2, "Stimulus Waveform Channel", 1);
+DlgChan(3, "Rate trigger Channel", 2);
+DlgXValue(4, "Duration of Average");
+DlgCheck(5, "Cursor: 1-2");
+DlgCheck(6, "Cursor: 3-4");
+DlgCheck(7, "Cursor: 5-6");
+DlgCheck(8, "Cursor: 7-8");
+DlgCheck(9, "Cursor: 9-0");
+DlgString(10, "Results subfolder", 256);
+DlgString(11, "File Save Name", 256);
+var ok% := DlgShow(waveChan%, stimChan%, stimTrigs.chan%, duration, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%, subFolder$, saveName$);
 
 if ok% = 1 then
     samples% := duration*(1/BinSize(waveChan%));
-    avg% := SetAverage(waveChan%, samples%, 0, stimTrigs.chan%, 1, 1);
+    waveAvg% := SetAverage(waveChan%, samples%, 0, stimTrigs.chan%, 1, 1);
     if cursor12% = 1 then
         Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
     endif
@@ -57,8 +60,30 @@ if ok% = 1 then
     if cursor90% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
-    FrontView(avg%);
+    FrontView(waveAvg%);
     saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
     saver.setSaveName(saveName$);
+    saver.save();
+    
+    file.bringToFront();
+    stimAvg% := SetAverage(stimChan%, samples%, 0, stimTrigs.chan%, 1, 1);
+    if cursor12% = 1 then
+        Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
+    endif
+    if cursor34% = 1 then
+        Process(View(-1).Cursor(3), View(-1).Cursor(4), 0, 1);
+    endif
+    if cursor56% = 1 then
+        Process(View(-1).Cursor(5), View(-1).Cursor(6), 0, 1);
+    endif
+    if cursor78% = 1 then
+        Process(View(-1).Cursor(7), View(-1).Cursor(8), 0, 1);
+    endif
+    if cursor90% = 1 then
+        Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
+    endif
+    FrontView(stimAvg%);
+    saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
+    saver.setSaveName(saveName$+"_stimulus");
     saver.save();
 endif

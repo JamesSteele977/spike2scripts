@@ -8,20 +8,20 @@ file.setPath(FileName$(-1));
 file.bringToFront();
 
 var SaveObj saver;
-var subFolder$ := "baseline2";
-var saveName$ := "-45dB_600Hz_10msPD_10pulses_5pps_0nA_SpkCnt";
+var subFolder$ := "baseline";
+var saveName$ := "-27dB_1600Hz_15msPD_1pulses_60pps_0nA_SpkCnt";
 
 var TrigsObj spkTrigs;
-spkTrigs.setChan(12);
+spkTrigs.setChan(9);
 var TrigsObj stimTrigs;
-stimTrigs.setChan(14);
+stimTrigs.setChan(2);
 var nbins% := 1;
-var duration := 1.2;
+var duration := 0.98;
 var offset := 0.0;
 var flags% := 2;
 
 var cursor12% := 1;
-var cursor34% := 1;
+var cursor34% := 0;
 var cursor56% := 0;
 var cursor78% := 0;
 var cursor90% := 0;
