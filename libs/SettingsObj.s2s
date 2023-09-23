@@ -1,0 +1,177 @@
+object SettingsObj
+    var path$;
+    var name$;
+    var view%;
+    
+    var temp$;
+    
+    var folder$;
+    var dB%;
+    var Hz%;
+    var msPD%;
+    var pulses%;
+    var pps%;
+    var nA;
+    var stimTrigChan%;
+    var stimChan%;
+    var waveChan%;
+    var duration;
+    var c12%;
+    var c34%;
+    var c56%;
+    var c78%;
+    var c90%;
+    var version$;
+    
+    '' Utility functions
+    func setPath(path$) self.path$ := path$ end;
+    func setName(name$) self.name$ := name$ end;
+    func openFile() 
+    self.view% := FileOpen(self.path$+"\\"+self.name$, 17, 2); 
+    return self.view%; 
+    end
+    func closeFile() View(self.view%);FileSave();FileClose(); end;
+    
+    '' Getter & Write functions
+    func get(col%, row%)
+    View(self.view%);
+    return GrdGet(self.temp$, col%, row%);
+    end
+    
+    func write(str$, col%, row%)
+    View(self.view%);
+    return GrdSet(str$, col%, row%)
+    end
+    
+    '' folder functions
+    func set_folder(x$) self.folder$ := x$ end;
+    func get_folder(col%, row%) get(col%, row%); set_folder(self.temp$); end;
+    func write_folder(col%, row%) return write(self.folder$, col%, row%) end;
+    
+    '' dB functions
+    func set_dB(x$) self.dB% := Val(x$) end;
+    func get_dB(col%, row%) get(col%, row%); set_dB(self.temp$); end;
+    func write_dB(col%, row%) return write(Str$(self.dB%), col%, row%) end;
+    
+    '' Hz functions
+    func set_Hz(x$) self.Hz% := Val(x$) end;
+    func get_Hz(col%, row%) get(col%, row%); set_Hz(self.temp$); end;
+    func write_Hz(col%, row%) return write(Str$(self.Hz%), col%, row%) end;
+    
+    '' msPD functions
+    func set_msPD(x$) self.msPD% := Val(x$) end;
+    func get_msPD(col%, row%) get(col%, row%); set_msPD(self.temp$); end;
+    func write_msPD(col%, row%) return write(Str$(self.msPD%), col%, row%) end;
+    
+    '' pulses functions
+    func set_pulses(x$) self.pulses% := Val(x$) end;
+    func get_pulses(col%, row%) get(col%, row%); set_pulses(self.temp$); end;
+    func write_pulses(col%, row%) return write(Str$(self.pulses%), col%, row%) end;
+    
+    '' pps functions
+    func set_pps(x$) self.pps% := Val(x$) end;
+    func get_pps(col%, row%) get(col%, row%); set_pps(self.temp$); end;
+    func write_pps(col%, row%) return write(Str$(self.pps%), col%, row%) end;
+    
+    '' nA functions
+    func set_nA(x$) self.nA := Val(x$) end;
+    func get_nA(col%, row%) get(col%, row%); set_nA(self.temp$); end;
+    func write_nA(col%, row%) return write(Str$(self.nA), col%, row%) end;
+    
+    '' stimTrigChan functions
+    func set_stimTrigChan(x$) self.stimTrigChan% := Val(x$) end;
+    func get_stimTrigChan(col%, row%) get(col%, row%); set_stimTrigChan(self.temp$); end;
+    func write_stimTrigChan(col%, row%) return write(Str$(self.stimTrigChan%), col%, row%) end;
+    
+    '' stimChan functions
+    func set_stimChan(x$) self.stimChan% := Val(x$) end;
+    func get_stimChan(col%, row%) get(col%, row%); set_stimChan(self.temp$); end;
+    func write_stimChan(col%, row%) return write(Str$(self.stimChan%), col%, row%) end;
+    
+    '' waveChan functions
+    func set_waveChan(x$) self.waveChan% := Val(x$) end;
+    func get_waveChan(col%, row%) get(col%, row%); set_waveChan(self.temp$); end;
+    func write_waveChan(col%, row%) return write(Str$(self.waveChan%), col%, row%) end;
+    
+    '' duration functions
+    func set_duration(x$) self.duration := Val(x$) end;
+    func get_duration(col%, row%) get(col%, row%); set_duration(self.temp$); end;
+    func write_duration(col%, row%) return write(Str$(self.duration), col%, row%) end;
+    
+    '' c12 functions
+    func set_c12(x$) self.c12% := Val(x$) end;
+    func get_c12(col%, row%) get(col%, row%); set_c12(self.temp$); end;
+    func write_c12(col%, row%) return write(Str$(self.c12%), col%, row%) end;
+    
+    '' c34 functions
+    func set_c34(x$) self.c34% := Val(x$) end;
+    func get_c34(col%, row%) get(col%, row%); set_c34(self.temp$); end;
+    func write_c34(col%, row%) return write(Str$(self.c34%), col%, row%) end;
+    
+    '' c56 functions
+    func set_c56(x$) self.c56% := Val(x$) end;
+    func get_c56(col%, row%) get(col%, row%); set_c56(self.temp$); end;
+    func write_c56(col%, row%) return write(Str$(self.c56%), col%, row%) end;
+    
+    '' c78 functions
+    func set_c78(x$) self.c78% := Val(x$) end;
+    func get_c78(col%, row%) get(col%, row%); set_c78(self.temp$); end;
+    func write_c78(col%, row%) return write(Str$(self.c78%), col%, row%) end;
+    
+    '' c90 functions
+    func set_c90(x$) self.c90% := Val(x$) end;
+    func get_c90(col%, row%) get(col%, row%); set_c90(self.temp$); end;
+    func write_c90(col%, row%) return write(Str$(self.c90%), col%, row%) end;
+    
+    '' c90 functions
+    func set_version(x$) self.version$ := x$ end;
+    func get_version(col%, row%) get(col%, row%); set_version(self.temp$); end;
+    func write_version(col%, row%) return write(self.version$, col%, row%) end;
+    
+    '' 
+    func readAll()
+    get_folder(1, 0);
+    get_db(1, 1);
+    get_Hz(1, 2);
+    get_msPD(1, 3);
+    get_pulses(1, 4);
+    get_pps(1, 5);
+    get_nA(1, 6);
+    get_stimTrigChan(1, 7);
+    get_stimChan(1, 8);
+    get_waveChan(1, 9);
+    get_duration(1, 10);
+    get_c12(1, 11);
+    get_c34(1, 12);
+    get_c56(1, 13);
+    get_c78(1, 14);
+    get_c90(1, 15);
+    get_version(1, 16);
+    end
+    
+    func writeAll()
+    write_folder(1, 0);
+    write_db(1, 1);
+    write_Hz(1, 2);
+    write_msPD(1, 3);
+    write_pulses(1, 4);
+    write_pps(1, 5);
+    write_nA(1, 6);
+    write_stimTrigChan(1, 7);
+    write_stimChan(1, 8);
+    write_waveChan(1, 9);
+    write_duration(1, 10);
+    write_c12(1, 11);
+    write_c34(1, 12);
+    write_c56(1, 13);
+    write_c78(1, 14);
+    write_c90(1, 15);
+    write_version(1, 16);
+    end
+    
+    func buildSaveName$()
+    var saveName$ := Str$(self.dB%)+"dB_"+Str$(self.Hz%)+"Hz_"+Str$(self.msPD%)+"msPD_"+Str$(self.pulses%)+"pulses_"+Str$(self.pps%)+"pps_"+Str$(self.nA)+"nA_v"+self.version$;
+    return saveName$;
+    end
+    
+ObjEnd    

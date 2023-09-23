@@ -1,0 +1,31 @@
+#include "libs/FileObj.s2s"
+#include "libs/TrigsObj.s2s"
+
+
+var FileObj file;
+file.setName(FileName$(3));
+file.setPath(FileName$(-1));
+
+var TrigsObj stimTrigs;
+stimTrigs.setChan(11);
+
+var stimChan% := 9;
+var resolution% := 1024;
+var window% := 1;
+
+var ts := Cursor(1);
+var te := Cursor(2);
+
+DlgCreate("Power Spectrum");
+DlgChan(1, "Signal Channel", 1);
+DlgInteger(2, "nbins", 0, 65536);
+DlgXValue(3, "start");
+DlgXValue(4, "stop");
+var ok% := DlgShow(stimChan%, resolution%, ts, te);
+if %ok == 1
+    var spectView% := SetPower(stimChan%,resolution%,window%);
+
+    Process(ts, te, 0, 1);
+
+    FrontView(spectView%);
+endif

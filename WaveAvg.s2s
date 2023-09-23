@@ -1,6 +1,15 @@
 #include "libs/FileObj.s2s"
-#include "libs/TrigsObj.s2s"
 #include "libs/SaveObj.s2s"
+#include "libs/SettingsObj.s2s"
+
+
+var SettingsObj stgs;
+stgs.setPath("C:\\Users\\rishi\\Documents\\gitrepos2\\spike2scripts");
+stgs.setName("WaveAvg_settings.s2gx");
+stgs.openFile();
+stgs.readAll();
+stgs.closeFile();
+
 
 var FileObj file;
 file.setName(FileName$(3));
@@ -9,24 +18,12 @@ file.bringToFront();
 
 var SaveObj saver;
 
-var subFolder$ := "baseline";
-var saveName$ := "-24dB_200Hz_20msPD_6pulses_35pps_50msGap_0nA";
+var subFolder$ := stgs.folder$;
+var saveName$ := stgs.buildSaveName$();
 
-var TrigsObj stimTrigs;
-stimTrigs.setChan(10);
-
-var waveChan% := 13;
-var stimChan% := 1;
-var duration := 0.98;
 var samples%;
 var waveAvg%;
 var stimAvg%;
-
-var cursor12% := 1;
-var cursor34% := 1;
-var cursor56% := 0;
-var cursor78% := 0;
-var cursor90% := 0;
 
 DlgCreate("Waveform Averager");
 DlgChan(1, "Vm Waveform Channel", 1);
@@ -38,26 +35,34 @@ DlgCheck(6, "Cursor: 3-4");
 DlgCheck(7, "Cursor: 5-6");
 DlgCheck(8, "Cursor: 7-8");
 DlgCheck(9, "Cursor: 9-0");
-DlgString(10, "Results subfolder", 256);
-DlgString(11, "File Save Name", 256);
-var ok% := DlgShow(waveChan%, stimChan%, stimTrigs.chan%, duration, cursor12%, cursor34%, cursor56%, cursor78%, cursor90%, subFolder$, saveName$);
+DlgInteger(10, "Attenuation(dB)", -100, 9);
+DlgInteger(11, "Carrier Freq(Hz)", 1, 5000);
+DlgInteger(12, "Pulse Durations(ms)", 1, 1000);
+DlgInteger(13, "num. of pulses", 1, 200);
+DlgInteger(14, "pulse rep.(pps)", 1, 200);
+DlgReal(15, "Injected Current (nA)", 0, 1);
+DlgString(16, "Additional id", 256);
+DlgString(17, "Results subfolder", 256);
+PrintLog(stgs.stimTrigChan%);
+var ok% := DlgShow(stgs.waveChan%, stgs.stimChan%, stgs.stimTrigChan%, stgs.duration, stgs.c12%, stgs.c34%, stgs.c56%, stgs.c78%, stgs.c90%, stgs.dB%, stgs.Hz%, stgs.msPD%, stgs.pulses%, stgs.pps%, stgs.nA, stgs.version$, subFolder$);
 
 if ok% = 1 then
-    samples% := duration*(1/BinSize(waveChan%));
-    waveAvg% := SetAverage(waveChan%, samples%, 0, stimTrigs.chan%, 1, 1);
-    if cursor12% = 1 then
+    PrintLog("Name: "+saveName$);
+    samples% := stgs.duration*(1/BinSize(stgs.waveChan%));
+    waveAvg% := SetAverage(stgs.waveChan%, samples%, 0, stgs.stimTrigChan%, 1, 1);
+    if stgs.c12% = 1 then
         Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
     endif
-    if cursor34% = 1 then
+    if stgs.c34% = 1 then
         Process(View(-1).Cursor(3), View(-1).Cursor(4), 0, 1);
     endif
-    if cursor56% = 1 then
+    if stgs.c56% = 1 then
         Process(View(-1).Cursor(5), View(-1).Cursor(6), 0, 1);
     endif
-    if cursor78% = 1 then
+    if stgs.c78% = 1 then
         Process(View(-1).Cursor(7), View(-1).Cursor(8), 0, 1);
     endif
-    if cursor90% = 1 then
+    if stgs.c90% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
     FrontView(waveAvg%);
@@ -66,24 +71,27 @@ if ok% = 1 then
     saver.save();
     
     file.bringToFront();
-    stimAvg% := SetAverage(stimChan%, samples%, 0, stimTrigs.chan%, 1, 1);
-    if cursor12% = 1 then
+    stimAvg% := SetAverage(stgs.stimChan%, samples%, 0, stgs.stimTrigChan%, 1, 1);
+    if stgs.c12% = 1 then
         Process(View(-1).Cursor(1), View(-1).Cursor(2), 0, 1);
     endif
-    if cursor34% = 1 then
+    if stgs.c34% = 1 then
         Process(View(-1).Cursor(3), View(-1).Cursor(4), 0, 1);
     endif
-    if cursor56% = 1 then
+    if stgs.c56% = 1 then
         Process(View(-1).Cursor(5), View(-1).Cursor(6), 0, 1);
     endif
-    if cursor78% = 1 then
+    if stgs.c78% = 1 then
         Process(View(-1).Cursor(7), View(-1).Cursor(8), 0, 1);
     endif
-    if cursor90% = 1 then
+    if stgs.c90% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
     FrontView(stimAvg%);
     saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
     saver.setSaveName(saveName$+"_stimulus");
     saver.save();
+    stgs.openFile();
+    stgs.writeAll()
+    stgs.closeFile();
 endif

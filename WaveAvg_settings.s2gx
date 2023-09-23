@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<CEDResources App="Spike2" AppVer="1001">
+	<DocGrid>
+		<Sheet rows="100" cols="26">
+			<C pf="134266760" htcol="16777215" hbcol="14120960" borstyl="12" />
+			<DefCol />
+			<Row n="0">
+				<C n="0" t="folder" />
+				<C pf="134252425" t="nbqx" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="dB" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="-39" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="Hz" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="550" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="msPD" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="16" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="pulses" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="1" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="pps" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="5" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="nA" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="0" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="stimTrigChan" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="11" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="stimChan" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="9" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="waveChan" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="15" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="duration" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="2.0" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" t="c12" />
+				<C t="1" />
+			</Row>
+			<Row>
+				<C n="0" t="c34" />
+				<C t="0" />
+			</Row>
+			<Row>
+				<C n="0" t="c56" />
+				<C t="0" />
+			</Row>
+			<Row>
+				<C n="0" t="c78" />
+				<C t="0" />
+			</Row>
+			<Row>
+				<C n="0" t="c90" />
+				<C t="0" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252425" t="version" htcol="16777215" hbcol="14120960" />
+				<C pf="134252425" t="0" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+			<Row>
+				<C n="0" pf="134252424" htcol="16777215" hbcol="14120960" />
+				<C pf="134252424" htcol="16777215" hbcol="14120960" />
+			</Row>
+		</Sheet>
+		<View>
+			<WPlace flags="0" showc="1" minx="-1" miny="-1" maxx="-1" maxy="-1" t="359" b="731" l="1448" r="2306" />
+			<Font hgt="-11" hthou="-115" wgt="400" paf="16" fnam="Times New Roman" />
+		</View>
+	</DocGrid>
+</CEDResources>
