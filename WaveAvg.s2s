@@ -4,7 +4,7 @@
 
 
 var SettingsObj stgs;
-stgs.setPath("C:\\Users\\rishi\\Documents\\gitrepos2\\spike2scripts");
+stgs.setPath("C:\\Users\\Arikill\\Documents\\gitRepos\\spike2scripts");
 stgs.setName("WaveAvg_settings.s2gx");
 stgs.openFile();
 stgs.readAll();
@@ -18,8 +18,7 @@ file.bringToFront();
 
 var SaveObj saver;
 
-var subFolder$ := stgs.folder$;
-var saveName$ := stgs.buildSaveName$();
+
 
 var samples%;
 var waveAvg%;
@@ -41,13 +40,12 @@ DlgInteger(12, "Pulse Durations(ms)", 1, 1000);
 DlgInteger(13, "num. of pulses", 1, 200);
 DlgInteger(14, "pulse rep.(pps)", 1, 200);
 DlgReal(15, "Injected Current (nA)", 0, 1);
-DlgString(16, "Additional id", 256);
+DlgString(16, "Version", 256);
 DlgString(17, "Results subfolder", 256);
-PrintLog(stgs.stimTrigChan%);
-var ok% := DlgShow(stgs.waveChan%, stgs.stimChan%, stgs.stimTrigChan%, stgs.duration, stgs.c12%, stgs.c34%, stgs.c56%, stgs.c78%, stgs.c90%, stgs.dB%, stgs.Hz%, stgs.msPD%, stgs.pulses%, stgs.pps%, stgs.nA, stgs.version$, subFolder$);
+var ok% := DlgShow(stgs.waveChan%, stgs.stimChan%, stgs.stimTrigChan%, stgs.duration, stgs.c12%, stgs.c34%, stgs.c56%, stgs.c78%, stgs.c90%, stgs.dB%, stgs.Hz%, stgs.msPD%, stgs.pulses%, stgs.pps%, stgs.nA, stgs.version$, stgs.folder$);
 
 if ok% = 1 then
-    PrintLog("Name: "+saveName$);
+    var saveName$ := stgs.buildSaveName$();
     samples% := stgs.duration*(1/BinSize(stgs.waveChan%));
     waveAvg% := SetAverage(stgs.waveChan%, samples%, 0, stgs.stimTrigChan%, 1, 1);
     if stgs.c12% = 1 then
@@ -66,7 +64,7 @@ if ok% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
     FrontView(waveAvg%);
-    saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
+    saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+stgs.folder$);
     saver.setSaveName(saveName$);
     saver.save();
     
@@ -88,10 +86,10 @@ if ok% = 1 then
         Process(View(-1).Cursor(9), View(-1).Cursor(0), 0, 1);
     endif
     FrontView(stimAvg%);
-    saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+subFolder$);
+    saver.setSavePath(file.path$+"\\..\\resultfiles"+"\\"+stgs.folder$);
     saver.setSaveName(saveName$+"_stimulus");
     saver.save();
     stgs.openFile();
-    stgs.writeAll()
+    stgs.writeAll();
     stgs.closeFile();
 endif
