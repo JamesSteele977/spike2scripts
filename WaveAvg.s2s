@@ -2,9 +2,10 @@
 #include "libs/SaveObj.s2s"
 #include "libs/SettingsObj.s2s"
 
+PrintLog(FileName$(-1));
 
 var SettingsObj stgs;
-stgs.setPath("C:\\Users\\Arikill\\Documents\\gitRepos\\spike2scripts");
+stgs.setPath("C:\\Users\\rishi\\Documents\\gitrepos2\\spike2scripts");
 stgs.setName("WaveAvg_settings.s2gx");
 stgs.openFile();
 stgs.readAll();
@@ -39,7 +40,7 @@ DlgInteger(11, "Carrier Freq(Hz)", 1, 5000);
 DlgInteger(12, "Pulse Durations(ms)", 1, 1000);
 DlgInteger(13, "num. of pulses", 1, 200);
 DlgInteger(14, "pulse rep.(pps)", 1, 200);
-DlgReal(15, "Injected Current (nA)", 0, 1);
+DlgReal(15, "Injected Current (nA)", -1, 1);
 DlgString(16, "Version", 256);
 DlgString(17, "Results subfolder", 256);
 var ok% := DlgShow(stgs.waveChan%, stgs.stimChan%, stgs.stimTrigChan%, stgs.duration, stgs.c12%, stgs.c34%, stgs.c56%, stgs.c78%, stgs.c90%, stgs.dB%, stgs.Hz%, stgs.msPD%, stgs.pulses%, stgs.pps%, stgs.nA, stgs.version$, stgs.folder$);
