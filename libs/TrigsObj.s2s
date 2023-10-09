@@ -99,4 +99,37 @@ object TrigsObj
     return MemSetItem(chan%, 0, self.start_event);
     end
     
+    func getFullEventCount()
+    var nevents%;
+    var tstart := 0.0;
+    var tend := MaxTime(self.chan%);
+    var t := tstart;
+    repeat
+        t := NextTime(self.chan%, t);
+        if t < 0 then
+            break;
+        endif
+        nevents% += 1;
+    until t < 0;
+    return nevents%;
+    end
+    
+    func getEventTimes(nevents%)[]
+    var eventTimes[nevents%];
+    var tstart := 0.0;
+    var tend := MaxTime(self.chan%);
+    var t := tstart;
+    var i% := 0;
+    repeat
+        t := NextTime(self.chan%, t);
+        if t < 0 then
+            break;
+        endif
+        eventTimes[i%] := t;
+        i% += 1;
+    until t < 0;
+    PrintLog(eventTimes);
+    return eventTimes;
+    end
+    
 objend

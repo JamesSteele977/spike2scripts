@@ -1,0 +1,21 @@
+#include "libs/FileObj.s2s"
+#include "libs/TrigsObj.s2s"
+
+var FileObj file;
+var TrigsObj stimTrig;
+
+file.setName(FileName$(3));
+file.bringToFront();
+stimTrig.setChan(2);
+stimTrig.setStartEvent(0.0);
+stimTrig.setEndEvent(MaxTime(stimTrig.chan%));
+stimTrig.getEventCount();
+
+const nevents% := stimTrig.getFullEventCount();
+const eventTimes := stimTrig.getEventTimes(nevents%);
+
+PrintLog(eventTimes);
+
+
+
+
