@@ -114,8 +114,7 @@ object TrigsObj
     return nevents%;
     end
     
-    func getEventTimes(nevents%)[]
-    var eventTimes[nevents%];
+    func getEventTimes(eventTimes[])
     var tstart := 0.0;
     var tend := MaxTime(self.chan%);
     var t := tstart;
@@ -128,8 +127,6 @@ object TrigsObj
         eventTimes[i%] := t;
         i% += 1;
     until t < 0;
-    PrintLog(eventTimes);
-    return eventTimes;
     end
     
 objend

@@ -3,6 +3,7 @@
 
 var FileObj file;
 var TrigsObj stimTrig;
+var compDur := 1.0;
 
 file.setName(FileName$(3));
 file.bringToFront();
@@ -12,10 +13,8 @@ stimTrig.setEndEvent(MaxTime(stimTrig.chan%));
 stimTrig.getEventCount();
 
 const nevents% := stimTrig.getFullEventCount();
-const eventTimes := stimTrig.getEventTimes(nevents%);
-
-PrintLog(eventTimes);
-
+var eventTimes[nevents%];
+stimTrig.getEventTimes(eventTimes);
 
 
 

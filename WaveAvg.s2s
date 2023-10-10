@@ -2,8 +2,6 @@
 #include "libs/SaveObj.s2s"
 #include "libs/SettingsObj.s2s"
 
-PrintLog(FileName$(-1));
-
 var SettingsObj stgs;
 stgs.setPath("C:\\Users\\rishi\\Documents\\gitrepos2\\spike2scripts");
 stgs.setName("WaveAvg_settings.s2gx");

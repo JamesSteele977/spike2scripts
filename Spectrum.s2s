@@ -13,6 +13,8 @@ var stimChan% := 9;
 var resolution% := 1024;
 var window% := 1;
 
+var spectView%;
+
 var ts := Cursor(1);
 var te := Cursor(2);
 
@@ -22,8 +24,8 @@ DlgInteger(2, "nbins", 0, 65536);
 DlgXValue(3, "start");
 DlgXValue(4, "stop");
 var ok% := DlgShow(stimChan%, resolution%, ts, te);
-if %ok == 1
-    var spectView% := SetPower(stimChan%,resolution%,window%);
+if ok% = 1 then
+    spectView% := SetPower(stimChan%,resolution%,window%);
 
     Process(ts, te, 0, 1);
 
