@@ -1,0 +1,22 @@
+#include "libs/FileObj.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.setPath(FileName$(-1));
+file.bringToFront();
+
+var ch1% := 5;
+'data falling through level: 3
+'data raising through level: 2
+var detect% := 3;
+var tstart := 0.0;
+var tend := MaxTime();
+var level := HCursor(1);
+var ch2%; 'MemChan created channel
+ch2% := MemChan(2); 'Add new Event- channel
+ChanShow(ch2%); 'Make it visible
+MemImport(ch2%, ch1%, tstart, tend,detect%,0.002, level);
+Draw(323.728, 16);
+'ChanSave(ch2%, 13);   'Save to unused channel
+'ChanTitle$(13, "SftSpikes");
+'ChanShow(ch2%);

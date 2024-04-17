@@ -1,0 +1,2220 @@
+'$Hum Remove|Remove mains related interference from waveform channels
+
+'Copyright © Cambridge Electronic Design,  Dec. 2006.
+'Authors:	GPS/GH. 
+'last modified:  12/01/ 2018 GH
+
+'SOFTWARE REQUIRED: Spike 2 version 7.20 or higher
+'The script requires functions located in the file GHutils.s2s located in the folder named
+'"include" inside the Spike2 directory
+
+'HEALTH WARNING:
+'The script is a work in progress and is offered without guarantees.
+'You must test it to see whether it is suitable for your application.
+
+'FURTHER INFORMATION:
+'see the CED datasheet Hum_Remove vx.x.pdf for a guide to using this script.
+
+'KEYWORDS
+'remove hum, 50 Hz,  60 Hz, mains interference pick up
+
+'OVERVIEW
+'This off-line script removes mains (50Hz or 60Hz) interference (hum) from waveforms by the method of "reference noise subtraction".
+'The method, its requirements, advantages and limitations are described in the CED data sheets <Hum Remove.pdf> and <HumRemoveExpress.pdf>.
+'Use the HumRemoveExpress.s2s script if you have recorded an event or marker channel for hum cycles using a CED 4001-16 Mains Pulser box or similar device.
+'Use THIS script if you need to create a hum marker channel based on a sampled waveform channel that has a hum component.
+
+'SAMPLING CONFIGURATION tips
+'Record waveforms with a sample rate of at least 10x and preferably 100x  the mains frequency (-or more). 
+'Waveform channel titles must be brief - 6 characters or less (if recording 32-bit .smr files) but unique, so that the script can identify channels
+'unambiguously by their titles. Somewhat longer titles are allowed in versions 8 and 9. Channel comments for waveform channels should be left blank.
+
+'USER GUIDE
+'Run this script via the "HR" button on the Script Bar. (created when you run the script for the first time).
+'The script generates a toolbar with 18 buttons:
+
+'QUIT               tidies up and closes the script
+'RESET              deletes memory buffers and result views so that you can abandon your analysis and make a fresh start.
+'NEW FILE           closes the current data file and allows you to browse to and open a new one. You can open files using the Spike2 File menu if you wish and
+'                   close files via their Close [X] box.
+
+'SELECT HUM MARKER  Opens a dialog where you choose the nominal hum frequency and choose either an existing hum marker channel or opt to create a new one based on a
+'                   hum polluted waveform channel. If the source waveform channel contains an accurate representation of the ongoing hum then you can choose the time range
+'                   and method for importing hum marks (troughs/peaks etc.) in the next dialog.
+'                   If the source is a hum-polluted data channel, then set the resonator ON with a Level of 0. When you click on OK, a hum marker channel will be created
+'                   based on a Q30-resonator-filtered version of the source waveform. With a bit of luck, this will create an imperfect but acceptable hum marker channel.
+
+'CHECK HUM MARKER  Click here to check the quality of the hum marker.  Two channels are added to the time view: Mean and instantaneous frequency of hum markers. These
+'                  channels make it easier to identify suspect markers. Two interval histograms at different scales show how closely hum markers are aligned to the nominal
+'                  hum frequency. Peaks at multiples of the hum frequency indicate the number of missing markers. The toolbar shows buttons that allow you to replace suspect
+'                  time ranges with markers at the nominal hum frequency OR at the frequency indicated by the HCursor position on the instantaneous frequency channel. There
+'                  is a dialog to choose the method. The horizontal cursor method is useful where you have episodes of dubious markers interspersed with periods of a stable 
+'                  marker frequency that differs somewhat from the nominal hum frequency e.g. 50.1Hz. You can select HCursor in the dialog, align the Hcursor and replace the
+'                  dubious episodes with markers at the putative ACTUAL hum frequency rather than the nominal hum frequency. You can replace multiple ranges relatively quicky
+'                  using the keyboard shorcuts F (Fetch Cursors) and R REPLACE RANGE. Press R twice to replace the range using the current method (and Hcursor position).
+'                  Note that the interval histograms and frequency plots will update every time you replace a range.
+'                  Press CANCEL to delete the edited hum marker channel and revert to the main toolbar. Click on OK to continue.
+
+'SETUP             Click here set up hum removal. Select the hum marker channel and the channel to clean up from drop-down lists. To clean up multiple channels, choose the SELECTED 
+'                  option and make sure that the required channels are selected by holding down CTRL and clicking on the relevant channel numbers.
+'                  Set the time range by dragging cursors or entering the values in the dialog.
+
+'  Epochs          To cope with changes in hum coupling and cycle shape with time, you can divide the file into epochs each with its own hum cancellation procedure.
+'                  You can type in the number of epochs to use, use the spinner arrows or click on Maximise to set the maximum number of epochs. The dialog will display
+'                  the corresponding epoch duration. The minimum duration of an epoch and the maximum allowed number of epochs is set in the PREFERENCES dialog.
+'                  The default minimum epoch duration is 2 seconds (i.e., 100 hum cycles at 50Hz). The default maximum number of epochs is 3600. 
+'                  This means that you can process 2 hours of data with 2-second epochs. You can increase the maximum number of epoch if you need to process longer files.
+'                  You can increase the time resolution of hum removal by reducing the epoch duration. However, this comes at the expense of reduced quality of the hum reference
+'                  signal since it is based on fewer hum cycles. We do not recommend setting a minimum epoch duration of less than 1 second.
+
+'  Track changes   If this box is un-checked, the mean hum level in each epoch is subtracted from the corresponding time range of the raw data.
+'                  If the box is checked, the subtraction signal is formed by interpolating between the averages of the two adjacent epochs.
+'  DC Remove       This removes slow drift from the raw data and cleaned-up channels. This may improve the appearance of extracellular nerve recordings but is obviously
+'                  not appropriate where DC offset is relevant, for example, for intracellular or field potential recordings.
+'  Exclude...      If a recording contains bursts of nerve impulses or muscle activity interrupted by quieter periods then there is a strong case for basing the reference
+'                  noise measurements only on the periods of lower physiological activity. The script attempts this if you check this box. It does so by excluding from the
+'                  reference averages those sweeps with a significantly higher than average standard deviation. The drawback of this approach is that the reference signal
+'                  for some epochs could be based on very few "quiet" cycles or in the extreme case none at all!
+'                  With this option selected, the script will generate a hum remove 'quality' channel next to the processed data. This is a colour-coded state channel with
+'                  each epoch coloured according to the proportion of the data that was used to create to create the reference. The colour code is based on traffic lights:
+'                  Green: >30%; Amber: <30%; Pink: <20%; Red: <10%.
+'Press OK to continue.
+
+'PROCESS NEXT      Click here to remove hum from the chosen waveform channel or the next channel in the selected list. Progress is shown on the script toolbar.
+'                  The raw and processed channels have different trace colours and display adjacent to one another.
+'PROCESS ALL       This button does the same as PROCESS NEXT but for each channel in turn. There is a short pause after the end of processing each channel during which
+'                  a dialog opens for you to cancel further processing if you so wish. Pause duration is 5s by default but can be adjusted in the Preferences dialog.
+'                  If the EXCLUDE... option is enabled then the dialog also shows a summary of the quality of hum removal, that is, the proportion of epochs where the number of
+'                  hum cycles used to create the reference noise signal was less than ideal. This information is displayed in the Log view when channels are processed one at a time.
+
+'REJECTED HUM      Click here to display the difference between the raw and processed channels in a Virtual channel. This shows the hum signal that was removed.
+'TOGGLE GROUPS     Click here to overdraw raw and cleaned waveform channels on a common Y-scale for easy visual inspection of the before-after differences.
+'                  Click again to flip between the overdrawn format and each trace shown with separate Y-axes.
+' + / -            Click on the + or - buttons to increase or decrease the offset between pairs of overdrawn channels.
+
+'SELECT/HIDE/SHOW  There are three buttons on the toolbar that are initially labelled, SELECT RAW, SELECT PROCESSED and SELECT REJECTED. These buttons give you a quick way to set up
+'                  the display of channels as you would like. Each of these buttons flips between the 3 different display modes Select, Hide and Show for raw data, processed data
+'                  and rejected hum channels respectively. The label on the button updates every time you press to indicate the effect of pressing the button next time.
+'DELETE SELECTED   This button opens a control panel for deleting the currently selected channels. There is an Are you sure? dialog before any raw data channel is deleted.
+'                  You can use this button in conjunction with the Select Raw, Select Processed or Select Rejected buttons to delete channels that are no longer of interest.
+'PREFERENCES       Click here to set your preferred minimum epoch duration, maximum number of epochs and pause duration between auto-processing multiple channels.
+'HELP              Click here to show or hide this user guide.
+'**xx**
+
+#include "GHutils.s2s"                                  ' include functions stored in GHutils.s2s (inside the Spike2\scripts folder)
+const swquit%:=1,swreset%:=2,swnew%:=3,swhmarker%:=4;   ' toolbar button numbers
+const swhmchk%:=5,swset%:=6,swAve%:=8,swprocess1%:= 9,swprocessall%:=10, swgroup%:=17, swofsup%:=18, swofsdwn%:=19;
+const swback%:=1,swreplaceC1C2%:=7;
+const swretry%:=3,swCftch1%:=5,swprefs%:=20,helpbtn%:=21;
+
+var swdel%:=11,swsrc%:=12,swdest%:=13,swhrej%:=14,swdiffchans%:=15;
+const on%:=1,off%:=0;
+'-----v9
+var script$,set$;
+var guidevh%;
+var drandx%,dxra[11],dyra[11],dlgx$,dlgy$;
+var nepmax%;
+var twait;                                         ' set display time (s) for Continue/Cancel dialog when Auto-processing multiple channels
+var key$:="HumRemove";
+var ts,te;
+var di%;
+var s2v%;                                               ' spike2 version running
+s2v%:=App(-1);                                          ' spike2 version
+var pref$;
+var setupflg%;
+var ra[0][0];                                           ' array to replace waterfall result view
+var rpag%[0];
+var sdv[0];                                             ' standard deviation for each epoch of average
+
+var nsw%[3];                                            ' counts of averages with low sweep count after editing
+var newchflg%;                                          ' flag failed to append
+var groupflg%,lastgrpflg%:=-1;                          ' 1:  grouped channels; 0: un-grouped.
+var nch%,lastnch%;                                      ' number of waveforms and Realwaves in current view
+var flipD%,flipS%,flipV%;                               ' toggle between show/hide/select for source /destination and rejected hum channels
+var c1pos, c2pos;                                       'remember cursor positions (start and end)
+var wwide;                                              'interval between hum marker to use when replacing ranges
+var rfndx%;                                             'index of hum replace frequency: 0: 50Hz; 1: 60Hz; 2: HCursor()
+var hclvl;                                              'position of horizontal cursor in IF channel (replace ranges)
+'-----
+var timeoutflg%;                                        ' flag set if the Continue/Stop dialog during Auto-processing closes automatically after delay.
+var tfl;
+var epmindur;                                      ' minimum duration of an epoch
+var timevh%;                                            ' current time view
+var avvh%[2];                                           ' view of pre and post edit average
+var cyCh%;                                              ' original channel holding the cycle markers, for the entire file
+
+var wCh%;                                               ' the waveform channel
+var aSt%;                                               ' index into average to the trigger point
+var sd;                                                 ' Standard deviation of the mean per point
+var npc%;                                               ' Number of Points per Cycle (approx)
+var wide;                                               ' nominal width in seconds of 1 cycle
+
+var trigch%;                                            ' trigger channel used to create averages
+var hmkch%;                                             ' improved hum marker channel created by the script
+var fhum;                                               ' hum frequency 50/60Hz
+var stime,etime;                                        ' time range
+var lastnsel%;                                          ' check selected channels in set up idle routine
+var intvh%[2];                                          ' handles for interval histograms
+var ifch%,frch%;                                        ' duplicate hum marker channels
+var sel%;                                               ' copy of wch% in set up dialog
+var dcremchk%;                                          ' option to remove dc from cleaned up channels
+var rvlinecol%,semcol%;                                 ' result view colours
+var nepochs%;                                           ' number of averages to take
+var epdur;                                              ' epoch duration
+
+var trackchk%;                                          ' 1: track amplitude changes between epochs; 0: use current average.
+
+var sw%;                                                ' switch used in Weighted average function to detect when a new epoch was read
+
+var srcch%,sch%;
+var mode%:=2,time:=0.01,level:=0.0;                     ' default hum mark import settings
+var list$[4];                                           ' create hum marker
+list$[0]:= "peak detect"; list$[1]:= "trough detect"; list$[2]:= "level+"; list$[3]:= "level-"; ' hum marker dialog list
+var res$[2],resndx%; res$[0]:="On"; res$[1]:="Off";     ' resonator on/off
+var break%:=0;                                          ' flag to interrupt automatic processing of multiple channels
+var xl,yl,xh,yh;                                        ' saved window coordinates
+var scanchk%:=1;                                        ' option to exclude regions of high activity when creating average hum
+var lastC1,lastC2;                                      ' cursor positions  (possible start and end times in set up dialog)
+
+View(App(3)).Windowvisible(2);                           'iconise script window
+script$:=View(App(3)).FileName$(0);                     ' full name of script -including volume and path
+set$:="HR|"+script$+"|Remove mains interference offline"; ' label for script bar button
+'----------------------------------------------
+AddScriptBarBtn%(set$);                                 ' comment this line if you do not want to add a button to the Script bar      *******
+'----------------------------------------------
+View(LogHandle()).WindowVisible(0);                     ' hide log
+rvlinecol%:=Colour(13);                                 ' get default colours for result view line and SEM
+semcol%:=Colour(34);
+'change colours while this script is running
+Colour(13,13);                                          ' blue
+Colour(34,3);                                           ' grey
+Profile(key$,"Prefs","5.0,2.0,3600",pref$);             ' get stored preferences
+ReadStr(pref$,twait,epmindur,nepmax%);
+Profile(key$,"dlgxpos","30,70,70,70,70,70,30,30,70,0",dlgx$);               
+Profile(key$,"dlgypos","10,10,10,10,10,10,10,10,10,10",dlgy$);
+ReadStr(dlgx$,dxra[0],dxra[1],dxra[2],dxra[3],dxra[4],dxra[5],dxra[6],dxra[7],dxra[8],dxra[9],dxra[9]);
+ReadStr(dlgy$,dyra[0],dyra[1],dyra[2],dyra[3],dyra[4],dyra[5],dyra[6],dyra[7],dyra[8],dyra[9],dyra[9]);
+DoToolbar();
+dlgx$:=Print$("%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",dxra[0],dxra[1],dxra[2],dxra[3],dxra[4],dxra[5],dxra[6],dxra[7],dxra[8],dxra[9],dxra[9]);
+dlgy$:=Print$("%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",dyra[0],dyra[1],dyra[2],dyra[3],dyra[4],dyra[5],dyra[6],dyra[7],dyra[8],dyra[9],dyra[9]);
+Profile(key$,"dlgxpos",dlgx$);
+Profile(key$,"dlgypos",dlgy$);
+pref$:=Print$("%.1f,%.1f,%d",twait,epmindur,nepmax%);   ' save current preferences
+Profile(key$,"Prefs",pref$);
+Colour(13,rvlinecol%);                                  ' restore default colours
+Colour(34,semcol%);
+halt;
+
+'Toolbar and functions to exclude unsuitable cycles from average
+
+proc REVISIONS()
+'VERSION: 1.12
+'Adapted to remove hum at frequencies other than 50 and 60Hz, for example pick up from a vibrating force platform.
+'You can now type in the hum frequency in the hum marker dialog as well as choosing 50 or 60Hz from a list.
+'You can no longer crash the script during generation of hum markers by having start and end times reversed.
+'The Interval histograms of the distribution of hum markers now shows the mean frequency in the X-axis title.
+'v.1.13 The script now copes when the data file was maximised. Previously, the script could finish with the time view
+'set larger than the screen area and thus with the resize, minimise and Close controls inaccessible.
+
+'01/07/2008 Increased number of bins in fine grain interval histogram (top left quadrant when <Check Hum Marker> button pressed
+'from 500 to 5000 to cope with <hum frequencies significantly lower than 50Hz.
+
+'04/03/2009
+'v2.0
+'The script is intended to remove hum from continously recorded waveforms. However, this version has been modified to cope with 
+'discontinous waveforms rather than crashing when it encounters a gap in the waveform.
+'
+'Hum removal from waveforms with gaps will work best if you record an event channel that marks the hum cycles rather than trying to 
+'reconstruct a hum marker from a hum polluted waveform channel using a resonator. This is because a hum marker created with a resonator
+'does not settle for the first few cycles after a gap in the data. The results is that hum is not removed effectively for some tens of ms after a gap.
+'You should be cautious about using the <multi-epoch> and <track changes> options where the data sections are unevenly distributed through
+'the recording
+'
+'29/05/09. The script no longer crashes if it was not possible to apply a resonator when creating a hum marker channel
+'There is now a query if you try to create a hum marker channel from a waveform with a sampling rate less than 10 x the hum frequency.
+
+'02/07/2009
+'The method for replacing hum markers in a time range with markers at fixed intervals has been fixed.
+'The button <Don't Fill gaps> has been added to the <Check Hum Marker> toolbar.
+'Clicking this button before <OK> prevents automatic addition of hum markers to fill gaps. Pressing this button can greatly speed up the
+'analysis if the traces that you want to clean up have large gaps in the data.
+
+'10/12/ 2010 
+'Channels with hum removed are now labelled with the units of the source channel. Previously, the units label was not updated (always Volts)
+'08/12/2011
+'Added dialogs in automatic processing to enable or disable exclusion of periods of high biological activity.
+'Enabling this option (the default) usually improves hum removal. Howevr, in chanels with continuous biological activity it could result
+'in the average interference being estimated from a very small number of sweeps and greatly reduced effectivess of hum removal.
+'It is now possible to uncheck a dialog box in order to average based on all the hum cycles rather than a select few.
+
+'Previously, the only way to avoid time ranges with neural or other activity being excluded was by choosing manual processing
+'followed by Hum Remove without performing any manual editing.
+
+'08/03/2012
+'Fixed a bug in ErrorAt(). Previously errors were always calculated based on hum in the 1st epoch rather than the epoch containing the current hume cycle.
+' 12/03/2012
+'fixed a bug in Setup Change and Idle functions. The maximum allowed number of epochs was not updated when the  time range set nside the dialog was changed
+'e.g by dragging cursors
+'Modified the following functions to permit hum removal over the time range specified in the set up dialog. Previously, the time range in the setup was ignored 
+'and the whole file was processed,
+'DoNext%(), AutoEdit%(), CleanUpwv%(),ChSetup%(), IdSetup%()
+'Screen coordinates of  dialogs, Newsflashes,time and result views adjusted so they always appear on Monitor 1 of a multi-monitor setup.
+'Idle function modified so that the script recognises a new time view opened via the file menu while the script is running.
+
+'05/12/2014
+'Previously, automatic processing of multiple channels required you to press a Continue or Stop button after processing each channel.
+'Processing stopped automatically if you did not press a button within 10 seconds.
+'Now, the script continues processing after a delay if no button was pressed. this means that the script can process multiple channels without continuing supervision.
+'You can set the duration of the pause when the Stop/Continue dialog appears by editing the value of the variable <twait> below.
+'You can set it to 0 if you wish for no delay but you sacrifice the option to stop before all channels were processed.
+
+'05/01/2018  v9
+'Added User Guide button and Preferences.
+'Script dialogs now remember their positions.
+'Script now installs a hotkey on the ScriptBar (HR).
+'Script now stores reference hum waveforms in 2d arrays not multi-channel averages.
+'Number of epochs allowed and minimum epoch duration now set in PREFERENCES.
+'Colour-coded state channels now indicate the quality of the reference signal for each epoch if physiological activity detector is enabled.
+'The script has Show/Hide/Select buttons for Raw, Processed and Rejected Hum channels
+'Filling a gap that starts at time zero or extends to maxtime() now works. previously, the gaps were left empty.
+'The script no longer fills gaps automatically when you click on OK. You must use the REPLACE TIME RANGE button explicitly.
+'previously, the script became unresponsive when filling long gaps. The script now Yields and updates every second.
+'Replace time range now includes an option to replace markers with the frequency marked by an H cursor in the IF channel. This means one can
+'replace markers at the putative actual hum frequency rather than the nominal hum frequency.
+'05/07/2018
+'Toggle groups and Group Offset now works when the source channe is a RealWave. Previously, the script crashed.
+'Previously, hum removal did not work properly if the <Exclude high physiological activity> checkbox in Setup was un-checked.
+end;
+
+proc DoToolbar();                                       ' show main toolbar
+ToolbarVisible(1);
+MainToolBtns();
+Toolbar("Remove hum script",511);
+return;
+end;
+
+proc MainToolBtns();
+ToolbarClear();
+ToolbarSet(0,"",idl%);
+ToolbarSet(swquit%, "&Quit||Tidy up and close the script", Quit%);
+ToolbarSet(swreset%, "&Reset||Clear up old memory buffers",Reset%);
+ToolbarSet(swnew%, "New &File", NewFile%);
+ToolbarSet(swhmarker%, "Select Hum &Marker||Choose existing cycle marker or derive one from a waveform",HumMarker%);
+ToolbarSet(swhmchk%,"&Check Hum Marker||Plot Hum Marker frequency and interval histograms",CheckHumMks%);
+ToolbarSet(swset%, "&Set up", Setup%);
+ToolbarSet(swprocess1%, "Auto-Process &Next|| Process next channel automatically", Process1%);
+ToolbarSet(swprocessall%, "Auto-Process &All|| Process all selected channels automatically", ProcessAll%);
+ToolbarSet(swdiffchans%,"Rejected &Hum||Display the rejected signal, i.e. original minus cleaned data",RejectedHum%);
+ToolbarSet(swsrc%,"Select &Raw||Toggle show/hide/select raw data channels",SelShowHideSrc%);
+ToolbarSet(swdest%,"Select  &Processed||Toggle select/show/hide processed data channels",SelShowHideDest%);
+ToolbarSet(swhrej%,"Select  &Rejected||Toggle select/show/hide rejected hum channels",SelShowHideVirtual%);
+ToolbarSet(swdel%, "&Delete Selected|| Delete selected channels", Delsel%);
+ToolbarSet(swgroup%,"Toggle &Groups||Overdraw or separate related channels ",ChGroup%);
+ToolbarSet(swofsup%," + |0x26|Increase offset between selected channel groups. Shortcut: Up arrow",OfsUp%);
+ToolbarSet(swofsdwn%," - |0x28|Reduce offset between selected channel groups. Shortcut: Down arrow",OfsDwn%);
+ToolbarSet(swprefs%,"Preferences||Set averaging epoch and pause duration when auto-processing multiple channels.",Prefs%);
+ToolbarSet(helpbtn%,"HELP||Show //Hide user guide",Guide%);
+return;
+end;
+
+func BtnEnable(btn%,btn2%,types%,newsrch$,oldsrch$,cs%) ' Enable named button if a channel with the correct characteristics is found in the current view 
+'btn%      nr. of a toolbar button to be dis/en-abled
+'btn%      optional nr. of a second toolbar button to be dis/en-abled. Use 0 if no second button required 
+'types%    types of acceptable channels -as for ChanList()
+'newsrch$  expression to search for in the channel title if using Spike2 v8.03 or higher (must begin with =)
+'oldsrch$  string for channel title search if version is 8.03 or earlier (for use with FChanList%())
+var lst%[2001],en%;
+
+if s2v%>803 then
+    ChanList(lst%[],newsrch$,types%);
+else
+    FChanList%(lst%[],types%,oldsrch$,cs%);
+endif;
+if lst%[0]>0 then en%:=1; endif;
+ToolbarEnable(btn%,en%);
+if btn2% >0 then
+    ToolbarEnable(btn2%,en%);                           ' en/dis-able optional second toolbar button
+endif;
+end;
+
+func idl%()                                             ' idle routine so that we can break with ESC plus some button controls
+var vh%,lst%[2];
+
+vh%:=View();                                            ' remember current view
+
+if ViewKind(timevh%) <> 0 then                          ' no time View
+    FindView(timevh%,0);                                ' try to find a time view on the desktop
+    if ViewKind(timevh%) <> 0 then     
+        DoButtons%("offx","",swquit%,swnew%,helpbtn%,swprefs%,0,0);
+    else
+        DoButtons%("onx","",swprocess1%,swprocessall%,swhmchk%,0,0,0);
+    endif;     
+else
+    View(timevh%);                                     
+    if WindowVisible()=3 then
+        Window(0,0,100,100);                            ' convert Maximised view to normal, full sized
+        WindowVisible(1);
+    endif;
+    YAxisMode(8192, 1,8, 0);                            ' horizontal titles and units
+    if groupflg%=1 then
+        DoButtons%("off","",swdest%,swhrej%,swdel%,swsrc%,swdiffchans%,0);                            ' disable channel select and delete if channels are grouped
+    else
+        docase
+        case ChanSelect(-1) > 0 and  ToolbarEnable(swdel%) = 0 then ' enable <Delete Selected> if any channels are selected
+            ToolbarEnable(swdel%,1);
+        case
+            ChanSelect(-1)=0 and ToolbarEnable(swdel%) = 1 then 
+            ToolbarEnable(swdel%,0);
+        endcase;
+    endif;
+    nch%:=ChanList(lst%[],1+512);
+    if nch%<>lastnch% or groupflg%<>lastgrpflg% then    ' only update if number of channels changed (stops unwanted flickering)
+        BtnEnable(swhrej%,swsrc%,512+4096+16384,"=^Hum\\d","Hum",0); ' Enable Show/Hide/Select <Rejected hum> button if channel(s) exist
+        BtnEnable(swdest%,swsrc%,1+512+16384,"=\\+hr$","+hr",0); ' Enable Show/Hide/Select <Processed> button if channel(s) exist
+        ToolbarEnable(swdiffchans%,on%);
+        lastnch%:=nch%;
+        lastgrpflg%:=groupflg%;
+    endif;
+endif;
+
+View(vh%);                                              ' leave view unchanged
+return 1;
+end;
+
+func Quit%();                                           ' tidy up and close script
+TidyUp();
+LogClear%();
+if ViewKind(guidevh%)=1 then
+    View(guidevh%);                                     ' close user guide window
+    FileClose(0,-1);
+endif;
+return 0;
+end;
+
+proc TidyUp()                                           ' option to go back if unsaved buffers found
+var list%[2],n%;
+if ViewKind(timevh%) = 0 then                           ' if current view is a time view
+	View(timevh%);
+	n%:=ChanList(list%[],4096+16384+2097152);           ' check for unsaved buffers
+	if n% > 0 then               
+        var lst%[n%+1];
+        ChanList(lst%[],4096+16384+2097152); 
+        ChanDelete(lst%[]);                             ' delete memory buffers
+    endif;
+endif;
+return;
+end;
+
+func Reset%()                                           ' options to clean up old windows and channels before resuming
+var q%;
+q%:=AreYouSure%();
+if q% = 0 then
+	DoButtons%("onx","",swprocess1%,swprocessall%,swAve%,swset%,swhmchk%,swreset%);
+endif;
+return 1
+end;
+
+func NewFile%()                                         ' browse to a new datafile
+var ok%,path$;
+ok%:=AreYouSure%();                                     ' option to tidy up current file before closing
+if ViewKind(timevh%) =0 then                            ' close time view
+	View(timevh%);
+	FileClose(0, -1);
+endif;
+timevh%:=FileOpen("",0,2);
+if timevh% > 0 then
+	ChanSelect(-1,0);                                   ' unselect channels
+	Window(0,50,100,100,1);
+	FrontView(timevh%);                                 ' show time view
+    ToolbarEnable(swhmarker%,on%);
+    path$:=FileName$(1)+Filename$(2);  'get path to this file
+    FilePathSet(path$,0);'make it current
+endif;
+return 1;
+end;
+
+func AreYouSure%()                                      ' option to go back if unsaved buffers found
+var list%[2],yesno%,n%,i%;
+if ViewKind(timevh%) = 0 then                           ' if current view is a time view
+	View(timevh%);
+	n%:=ChanList(list%[],4096+16384+2097152);           ' check for unsaved buffers
+	if n% > 0 then
+        drandx%:=0;
+		DlgCreate("Query",dxra[drandx%],dyra[drandx%],0,0,0,1);
+		DlgText("Unsaved channels detected.\nPress Cancel go back and Save or Proceed to discard unsaved channels.",1,1);
+		DlgButton(1,"Cancel",Cancelx%);
+		DlgButton(0,"&Proceed",OKx%);
+		yesno%:=DlgShow();        
+		if yesno% = 1 then
+			return 1;                                   ' cancelled. Return to toolbar
+		endif;
+	endif;
+	var lst%[n%+1];
+	ChanList(lst%[],4096+16384+2097152); 
+	ChanDelete(lst%[]);                                 ' delete memory buffers
+	for i%:=0 to 1 do    
+		if ViewKind(intvh%[i%]) =4 then                 ' close interval histograms
+			View(intvh%[i%]);
+			FileClose(0, -1);
+		endif;
+	next;
+endif;
+return 0;
+end;
+
+func HumMarker%()                                       ' create new hum marker channel
+var ok%,mch%,fhum$,ncyc;
+var chlst%[20];
+
+Profile("HumRemove","humfreq","50",fhum$);              ' last hum frequency
+View(timevh%);
+mch%:=MemChan(2);
+etime:=MaxTime();
+ChanTitle$(mch%,"New Mkr");
+ChanShow(mch%);
+ChanHide(31);                                           ' exclude keyboard marker from list
+ChanList(chlst%[],2+4+8+2048+16384);                    ' visible markers 
+ChanHide(mch%);
+'ChanShow(31);
+
+drandx%:=1;
+DlgCreate("Select Hum Marker",dxra[drandx%],dyra[drandx%],0,0,0,1);
+DlgAllow(511);
+DlgString(1,"Hum frequency (Hz)",6,"0-9.",0,0, "50|60");
+DlgChan(2, "Source channel|Channel containing hum cycle markers", chlst%[]); ' visible Marker channels
+DlgButton(1,"OK",OKx%);
+ok%:=DlgShow(fhum$,cyCh%);
+fhum:=Val(fhum$);
+if ok% = 0 then ChanDelete(mch%); return 1; endif; ' cancelled
+
+wide := 1.0/fhum;                                       ' get cycle duration
+if fhum=60.0 then rfndx%:=1; else rfndx%:=0; endif;
+docase
+case cyCh% <> mch% then                                 ' user chose an existing hum marker channel
+	if Count(cyCh%,stime,etime) < 0.5*fhum*(etime-stime) then ' too many missing markers
+		ChanDelete(mch%);	                           	
+		NewsFlash(Print$("Ch. %d is not a valid hum marker channel. Please try again.",cyCh%),2.0,30,5,1);
+		return 1;
+	else
+		MemImport(mch%,cyCh%,stime,etime);              ' copy to a memory channel
+		hmkch%:=mch%;                                   ' rename the new memory channel
+	endif;
+    
+case cyCh% = mch% then                                  ' create new hum marker
+    drandx%:=2;
+    DlgCreate("Create New Hum Marker",dxra[drandx%],dyra[drandx%],60,0,0,1);  
+    DlgAllow(511,IdHumMkr%,ChHumMkr%);
+    DlgText("based on|derive hum marker from a visible waveform channel",0,1);
+    DlgChan(1,16,1+512+2048+4194304,15,1);
+    DlgText("Resonator",36,1);
+    DlgList(4,8,res$[],2,-2,1);
+    DlgText("Method",2,2);
+    DlgList(5,16,list$[],5,15,2);
+    DlgText("Level| as percentage of pk to pk range in source channel",36,2);
+    DlgReal(6,8,0.0,90.0,-2,2);
+    
+    DlgGroup("Time range",1,3.5,58,3);
+    DlgText("Start time",0,4.5);
+    DlgText("End time",0,5.5);   
+    DlgReal(2,14,0,MaxTime(),-2,4.5,1);
+    DlgReal(3,14,0,MaxTime(),-2,5.5,1);
+    DlgButton(2,"  Zero   ",C1Zero%,14,4.5);
+    DlgButton(3,"MaxTime",C2MaxT%,14,5.5);
+    DlgButton(4,"Fetch Csr 1",FetchCsrs1%,26,4.5);
+    DlgButton(5,"Fetch Csr 2",FetchCsrs2%,26,5.5);
+    
+    DlgButton(1,"OK|0x0d",OKx%);
+    DlgButton(0,"Cancel",Cancelx%);
+    ok%:=DlgShow(sch%,stime,etime,resndx%,mode%,level);
+    if ok% = 0 then ChanDelete(mch%); return 1; endif;  ' cancelled
+    View(timevh%);
+    
+    ncyc:=wide/BinSize(sch%);                           ' check the sample rate
+    if ncyc<10.0 then
+        drandx%:=3;
+        DlgCreate(Print$("Channel %d",sch%),dxra[drandx%],dyra[drandx%],0,0,0,1);
+        DlgText(Print$("Only %.1f sample points per hum cycle.\n   The recommended minimum is 10.",ncyc),2,1);
+        DlgButton(1,"Continue|0x0d",OKx%);
+        DlgButton(0,"Cancel",Cancelx%);
+        ok%:=DlgShow();
+        if ok%=0 then                                   ' cancelled
+            ChanDelete(mch%);
+            return 1;
+        endif;
+    endif;
+    ToolbarText("Working...");
+    Yield();                                            ' give time for dialogs to close
+    
+	var t;
+	if etime<stime then                                 ' flip start and end if they were reversed
+		t:=etime;
+		etime:=stime;
+		stime:=t;
+	endif;
+    FilterWave(sch%);
+    srcch%:=sch%;                                       ' copy of source channel number
+    if resndx%=0 then                                   ' resonator
+        IIRCreate(-1, 2, 4, 2, fhum, 90.25, 30.2);      ' IIR Resonator tuned to mains frequency Q =30.
+        srcch%:=IIRApply(-1, 0, srcch%, stime, etime, 1); ' Apply IIR filter, results in a memory buffer
+        if srcch%<0 then
+            ChanDelete(mch%);
+            ChanProcessClear(sch%,-1);
+            Message("Error|Unable to apply a resonator to channel %d.\n"+
+            "                  Sample rate too low?",sch%);
+            return 1;
+        endif;
+        Optimise(srcch%);
+        ChanTitle$(srcch%,"Hum srce");
+        ChanShow(srcch%);    
+    endif;
+    level:= ChanMeasure(srcch%,10,stime,etime)*level*0.01; ' pk to pk amplitude of source * % level in dialog
+    hmkch%:=mch%;
+    MemImport(hmkCh%,srcch%,stime,etime,mode%,time,level); ' generate and show synthesised hum marker channel
+    ChanTitle$(hmkCh%,"Hum mkr");
+    ChanShow(hmkCh%); 
+endcase;
+Profile("HumRemove","humfreq",fhum$);                   ' remember hum frequency
+DoButtons%("onx","",swprocess1%,swprocessall%,swAve%,swset%,swhmarker%,0);
+ToolbarText("Hum Remove script");
+return 1;
+end;
+
+func ChHumMkr%(item%)                                   ' clamp low limit of level when user selects peak or trough
+if DlgValue(5) < 2 then                                 ' peak/trough detect selected
+	if DlgValue(6)<10.0 then
+		DlgValue(6,10.0);                               ' set a minimum level of 10% for pk/trough measurements.
+	endif;
+endif;
+LinkDlgToCsr%(item%,2,1,timevh%);                       ' link times in dialog to cursor in source file
+LinkDlgToCsr%(item%,3,2,timevh%);
+return 1;
+end;
+
+func IdHumMkr%()
+CursorRenumber();
+LinkCsrToDlg(2,1,timevh%);                              ' link cursors 1 and 2 in source file to the dialog
+LinkCsrToDlg(3,2,timevh%);
+return 1;
+end;
+
+func CheckHumMks%()                                     ' show/hide mean and instantaneous hum frequency
+View(timevh%);
+c1pos:=Cursor(1);
+c2pos:=Cursor(2); 'remember cursor positions so that we can restore them after fill gaps
+if ChanKind(ifch%)=2 or ChanKind(frch%)=2 or ViewKind(intvh%[0])= 4  or ViewKind(intvh%[1])= 4 then
+	DeleteExtraChans();                                 ' delete channels and views
+else 
+    View(timevh%);
+	if WindowVisible()=3 then
+		xl:=0; yl:=0; xh:=100; yh:=100;
+	else
+		WindowGetPos(xl,yl,xh,yh,1);                    ' store current coords of time view so we can restore later
+	endif;	
+	Window(0,50,100,100,1);                             ' resize time view to lower part of display
+	MakeExtraChans();                                   ' generate extra channels
+    
+	CheckHumBtns();
+endif;
+return 1;
+end;
+
+func LogClear%()                                        ' clear log and iconise
+var vh%;
+
+vh%:=View();
+View(LogHandle());
+WindowVisible(2);
+EditSelectAll();
+EditClear();
+View(vh%);
+return 1;
+end;
+
+proc ListChans(chlst%[],types%,srch$,oldsrch$,cs%)
+'generate a list of channels based on a types% mask and match to a search term in the channel titleusing regular expressions.
+'srch$  is used in Spike2 version 8.04 and higher. This term must start with "="
+'oldsrch$ and cs% set the search method used by FChanList%() in Spike2 v8.03 and earlier
+if s2v%>803 then
+    ChanList(chlst%[],srch$,types%);
+else
+    FChanList%(chlst%[],types%,oldsrch$,cs%);
+endif;
+end;
+
+func MaxEpochs%()
+DlgValue(4,nepmax%);                                    ' set the absolute maximum as starting point
+ChSetup%(4);                                            ' let the Change function do the rest
+return 1;
+end;
+
+func NextRange%()                                       ' advance to next contiguous time range
+var s,e,dur;
+View(timevh%);
+
+dur:=etime-stime;
+s:=etime;
+e:=s+dur;
+if e>MaxTime() then e:=MaxTime(); endif;
+Cursor(1,s);
+Cursor(2,e);
+DlgValue(2,s);
+DlgValue(3,e);
+if e>XHigh() then
+    XRange(e-dur,e);                                    ' make sure that the time range we will process is viisble
+endif;
+DlgEnable(0,-3);                                        ' disable button after one press
+ChSetup%(0);
+return 1;
+end;
+
+func CheckTRnge%(ch%,st)                                ' check whether have we already processed this data
+'ch%    a waveform or Realwave channel in the current time view or -3 signifying one or more selected channels
+'st     start time of the range to process
+
+'returns 1 if all is well or -1 an overlap was detected between the current time range and already processed data
+var chlst%[2001],list%[2001],i%,ttl$,ret%:=1;
+
+if ch%=-3 then
+    ChanList(chlst%[],1+512+65536);                     ' selected waveforms and realwaves
+else
+    chlst%[0]:=1;
+    chlst%[1]:=ch%;
+endif;
+
+for i%:=1 to chlst%[0] do
+    ttl$:=ChanTitle$(chlst%[i%]);
+    
+    ListChans(list%[],1+512+2048,Print$("=%s\\+hr",ttl$),Print$("%s\\+hr",ttl$),3); ' list of processed channels    
+    if list%[0]>0 then
+        var tmx:=MaxTime(list%[1]);                     ' maxtime in this channel
+        if tmx>stime then
+            Message("Error: Channel %d|Selected time range overlaps data that has already been processed.",chlst%[i%]);
+            ret%:= -1;
+            break;
+        endif;
+    endif;
+next;    
+return ret%;
+end;
+
+func Setup%()                                           ' select channels to clean up etc.
+var ok%,i%;
+var list%[2001],list2%[2001],errflg%;
+
+LogClear%();
+ProfileGet();
+View(timevh%);
+
+ListChans(list%[],2+8,"=Hum mkr","Hum mkr",0);          ' search for hum marker channel
+if list%[0]>0 then cych%:=list%[1]; endif;              ' set default hum marker channel
+
+ChanList(list%[],1+512+16384+2097152);                  ' visible wform/Realwave (NOT Virtuals or duplicates)
+for i%:=1 to list%[0] do
+    ChanSelect(list%[i%],1);                            ' select all waveforms and realwaves
+next;
+
+ListChans(list2%[],1+512+65536,"=\\+hr","+hr",0);       ' list of selected waveforms with <+hr> in title
+if list2%[0]>0 then
+    for i%:=1 to list2%[0] do
+        ChanSelect(list2%[i%],0);                       ' unselect channels that have already been processed
+    next;
+endif;
+
+if etime=0.0 then etime:=MaxTime(); endif;
+if ChanKind(cych%)=2 or ChanKind(cych%)=8 then          ' this implies we are not on first pass through the script
+    if stime >0 then stime-=LastTime(cych%,stime+BinSize()); endif;   
+    if etime<MaxTime() then etime:=NextTime(cych%,etime-BinSize()); endif; ' try to round  times to their values on a previous pass.
+    ' (the script moves start and end by binsize prior to processing and leaves unexpected start and end values on the next pass)
+endif;
+DoCursors(2);
+
+setupflg%:=1;                                           ' flag that Setup dialog is open (enables part of idle function)
+wch%:=-3;                                               ' default to selected channels
+lastnsel%:=-1;
+
+drandx%:=0;
+DlgCreate("Set up Hum cancellation",dxra[drandx%],dyra[drandx%],60,0,0,1); ' select channels etc.
+DlgAllow(511,IdSetup%,ChSetup%);                        ' allow use of drop-down menus with dialog open
+DlgChan(1, "Channel(s) to clean up|Click on the required channel numbers to enable the Selected option",
+1+512+2048+65536+2097152+1048576,0,2);                  ' visible waveform or realwave + selected NOT Virtuals
+DlgGroup("Time range",1,3,57,2.8);
+DlgText("Start",5,3.8);
+DlgText("End",5,4.8);
+DlgReal(2,14,0,MaxTime(),-3,3.8,1);
+DlgReal(3,14,0,MaxTime(),-3,4.8,1);
+DlgButton(4,"  Zero   ",C1Zero%,14,3.8);
+DlgButton(5,"MaxTime",C2MaxT%,14,4.8);
+DlgButton(6,"Fetch Csr 1",FetchCsrs1%,26,3.8);
+DlgButton(7,"Fetch Csr 2",FetchCsrs2%,26,4.8);
+
+DlgInteger(4,"Number of epochs|Tip: Subdivide the data into epochs if hum levels vary with time",1,nepmax%,45,6.5,1);
+DlgButton(2,"  Maximise  ||Set maximum number of epochs for current time range",MaxEpochs%,44,7.5);
+DlgText("Recalculate hum signal every:|Epoch duration (s)",2,7.5);
+DlgGroup("",30,7.1,12,1.4);
+di%:=DlgText("",32,7.6,8);
+DlgGroup("",43,6,15,2.5);
+DlgGroup("Options",9,8.9,42,4);
+DlgCheck(5,"Track changes in hum amplitude| Interpolate between epochs",11,9.9);
+DlgCheck(6,"Apply DC Remove to cleaned up channels|reversibly removes slow drift from extracellular recordings",11,10.9);
+DlgChan(7,"Hum cycle marker",2+8,0,1);                  ' hum marker must be event or marker
+DlgCheck(8,"Exclude periods of high physiological activity|e.g. nerve impulses when measuring mean hum level",11,11.9);
+DlgButton(3,"Next Range|0x4e|Hotkey:  N; Select next time range (equal duration and contiguous).",NextRange%,35,13.4);
+DlgButton(1,"OK|0x0d",OKx%,22,13.4);
+DlgButton(0,"Cancel",Cancelx%,12,13.4);
+ok%:=DlgShow(wCh%,stime,etime,nepochs%,trackchk%,dcremchk%,cych%,scanchk%);
+setupflg%:=0;
+docase
+case ok% = 0 then                                       ' cancelled
+    return 1;
+case cych%=0 then
+    Message("No hum cycle marker channel selected");
+    return 1;
+endcase;                                                ' cancelled
+
+if (etime-stime)<0.5 then 
+	NewsFlash("Invalid time range",0,60,5,1);
+    return 1;
+endif;
+var c;
+c:=Count(cych%,stime,etime);                            ' count hum markers in range
+if c<(etime-stime)*48 or c>(etime-stime)*62 then
+    Message("Error|Not a valid Hum Marker channel. The number of markers is outside the expected range.");
+    return 1;
+endif;
+
+docase
+case wch%>0 then
+    ChanSelect(-1,0);                                   ' unselect multiple channels if only one chosen from dialog
+    if FileName$(5)=".smr" and Len(ChanTitle$(wch%))>6 then ' channel title is too long
+        errflg%:=1;
+    endif;    
+    
+case wch%=-3 then                                       ' selected channels option
+    ChanList(list%[],1+512+65536);                      ' check length of titles
+    
+    for i%:=1 to list%[0] do
+        if FileName$(5)=".smr" and Len(ChanTitle$(list%[i%]))>6 then
+            errflg%:=1;
+            break;
+        endif;
+    next;
+endcase;
+if errflg% then
+    Message("Error|Source channel titles must be 6 characters or less.\n Edit the channel titles and re-try.");
+    return 1;
+endif;
+
+ok%:=CheckTRnge%(wch%,stime);
+if ok%<0 then return 1; endif;
+
+sel%:=wch%;                                             ' copy used later to detect whether we are working on a list of selected channels
+stime:=NextTime(cych%,stime-BinSize());                 ' adjust time range to nearest markers
+etime:=LastTime(cych%,etime+BinSize());
+epdur:=(etime-stime)/nepochs%;                          ' set epoch duration
+
+ok%:=PtsPerCycle%(wch%);                                ' check that channel(s) have high enough sample rate
+if not ok% then
+	return 1;
+endif;
+
+ProfileSet();                                           ' remember settings 
+ToolbarEnable(swprocess1%,on%);
+if wch% < 0 then                                        ' if more than one channel selected
+    ToolbarEnable(swprocessall%,on%);                                        ' enable process all
+endif;	                                            
+return 1;
+end;
+
+func ChSetup%(item%)
+var nmax%,en%,dur;
+
+dur:=(DlgValue(3)-DlgValue(2));
+nmax%:=dur/epmindur;                                    ' maximum number of epochs for this time range
+if DlgValue(4) > nmax% then
+	Sound("S!",1);                                      ' warning sound
+	DlgValue(4,nmax%);                                  ' limit the number of epochs using minimum duration criterion
+endif;
+DlgValue$(di%,Print$("%5.2fs",dur/DlgValue(4)));        ' divide by zero error possible? ***
+
+if DlgValue(4)=1 then en%:=0 else en%:=1; endif;
+DlgEnable(en%,5);                                       ' disable interpolation if we only have one epoch
+
+if DlgValue(7)=0 then
+    DlgEnable(0,-1);                                    ' disable <OK> button if no hum marker selected
+else
+    DlgEnable(1,-1);  
+endif;
+if DlgValue(3)>MaxTime()-0.1 then                       ' disable next range if we already reached MaxTime()
+    DlgEnable(0,-3);
+endif;
+
+LinkDlgToCsr%(item%,2,1,timevh%);                       ' link times in dialog to cursor in source file
+LinkDlgToCsr%(item%,3,2,timevh%);
+return 1;
+end;
+
+func IdSetup%()                                         ' disable OK if no channels selected when Selected option is chosen in dialog
+var en%,nsel%,list%[2];
+View(timevh%);                                          ' disable OK if user chose selected in dialog with no channels selected
+nsel%:=ChanList(list%[],1+512+65536);                   ' selected waveform channels
+docase
+case nsel% <> lastnsel% and DlgValue(1) = -3 then
+	if DlgValue(1)=-3 and nsel% = 0 then
+		en%:=0;
+	else
+		en%:=1;
+	endif;
+	DlgEnable(en%,-1);
+	lastnsel%:=nsel%;
+	
+case DlgValue(1)>0 then
+	DlgEnable(1,-1);
+	lastnsel%:=-1;
+endcase;
+if setupflg%=1 then                                     ' only if the <Setup dialog is open
+    docase
+    case Cursor(1)<> lastC1 then                        ' limit  number of  epochs in the dialog if time range is selected by cursors and cursors are moved to reduce time range
+        CursorRenumber();     
+        ChSetup%(0);
+        lastC1:=Cursor(1);
+    case Cursor(2)<> lastC2 then                        ' ditto
+        CursorRenumber();     
+        ChSetup%(0);
+        lastC2:=Cursor(2); 
+    endcase;
+endif;
+LinkCsrToDlg(2,1,timevh%);                              ' link cursors 1 and 2 in source file to the dialog
+LinkCsrToDlg(3,2,timevh%);
+return 1;
+end;
+
+func PtsPerCycle%(wch%)                                 ' returns points per cycle on given waveform channel
+var i%,n%,chlst%[50],oops%:=0;
+if wch%>0 then
+	n% := wide/Binsize(wCh%);
+	if (n% < 10) then 
+		NewsFlash(Print$("Can't remove hum from channel %d. Sample rate is too low.",wch%),2.5,30,5,1);
+		return -1;
+	endif;
+else
+	ChanList(chlst%[],65536+1+512);                     ' list of visible selected waveforms
+	for i%:=1 to chlst%[0] do
+		if wide/BinSize(chlst%[i%]) < 1 then 
+			ChanSelect(chlst%[i%],0); oops%+=1; endif;  ' unsuitable channel so unselect it
+	next;
+	if oops%> 0 then 
+		NewsFlash(Print$("%d channels were unselected because the sample rates were too low.",oops%),2.5,30,5,1);
+		if ChanSelect(-1)= 0 then return -1;            ' no selected channels left.
+		endif;
+	endif;
+endif;    
+return 1;
+end;
+
+func FillGaps%(inch%,st,et,mode%)                       ' create a hum cycle channel with gaps filled in
+'wide:	The period of the cycles we seek to improve.
+'inch% A channel in the current time view that holds markers that are at the period wide
+'The channel may have missing events.
+
+var t1,t2,n%,i%;
+var sum,t,mch%;
+
+mch% := MemChan(2);                                     ' new memory channel
+if mch%<=0 then 
+	NewsFlash("Error: Couldn't create improved cycles channel",2.5,30,5,1);
+	return -1;
+endif;
+if mode%=0 then
+    MemImport(mch%,inch%,stime,etime);                  ' import all markers (dodgy ones between cursor have already been deleted)
+    st:=LastTime(mch%,st)-BinSize();
+endif;
+ChanShow(mch%);                                         ' make it visible
+ChanTitle$(mch%, "Hum mkr.");                           ' our cycle marker channel
+
+var ttt%,lasttt%;
+Seconds(0);
+ToolbarText("Working...");
+if st<0 then                                       'looks like start of range is before first hum marker
+    t1:=Nexttime(mch%,st) mod wwide;                                     'so start near zero at an exact number of cycles before end time
+else;
+    t1 := NextTime(inch%, st);                              ' get first time on original channel
+endif;
+
+while t1 >= 0 and t1 < et do
+	MemSetItem(mch%, 0, t1);                            ' copy time to the new channel
+	t2 := NextTime(inch%, t1);                          ' find next item on original channel
+    if t2<0 then t2:=MaxTime(); endif;
+	if t2 > t1 then
+		sum += (t2-t1);
+		n% := Round((t2-t1)/wwide);                      ' number of cycles
+		if n% > 1 then
+			for i% := 1 to n%-1 do
+				MemSetItem(mch%, 0, t1 + i%*(t2-t1)/n%); ' add missing items
+                ttt%:=Seconds();
+                if ttt%>lasttt% then
+                    Yield();
+                    lasttt%:=ttt%;
+                endif; 'keep system responsive when filling long gaps
+			next;
+		endif;
+	endif;
+	t1 := t2;                                           ' set new back time   
+wend
+ToolbarText("Hum Remove script");
+return mch%;
+end;
+
+func RejectedHum%()	
+var chlst%[2001],i%,n%,ch%,ach%,srcch$,ok%;
+var vchlst%[2],ndx%,expr$,vrtch%,kind%;
+
+LogClear%();
+if ViewKind(timevh%)<>0 then return 1; endif;
+View(timevh%);
+
+ListChans(chlst%[],1+512,"=\\+hr","+hr",0);             ' list of selected waveforms with <+hr> in title
+if chlst%[0]=0 then
+    Newsflash("No processed channels found",0,60,5,0);
+    return 1;
+endif;                                                  ' no cleaned channels found
+var srcchlst%[chlst%[0]+1];
+for i%:=1 to chlst%[0] do                               ' make a list of matching source channels
+    n%:=InStr(ChanComment$(chlst%[i%]),"on ch. ");
+    srcch$:=Mid$(ChanComment$(chlst%[i%]),n%+6,3);      ' extract string contining source channel number
+    srcchlst%[i%]:=Val(srcch$);                         ' convert to number format
+    srcchlst%[0]+=1;     
+next;
+ChanSelect(-1,0);                                       ' unselect all
+for i%:=1 to chlst%[0] do
+    ChanSelect(chlst%[i%],1);                           ' select all candidate channels
+next;          
+chlst%[0]+=1048576;                                     ' include selected in the channel list  
+
+drandx%:=1;
+DlgCreate("Show rejected hum",dxra[drandx%],dyra[drandx%],0,0,0,1);
+DlgAllow(511,IdSetup%);
+DlgChan(1,"Processed channel(s)",chlst%[]);                                     ' list of processed channels
+DlgButton(1,"OK|0x0d",OKx%);
+DlgButton(0,"Cancel",Cancelx%);
+ok%:=DlgShow(ch%);
+if not ok% or ch%=0 then return 1; endif;               ' cancelled
+
+chlst%[0]-=1048576;                                     ' restore true channel count
+i%:=1;
+repeat
+    if ch%=-3 then
+        ach%:=chlst%[i%];                               ' process list of selected channels
+    else
+        ach%:=ch%;
+    endif;
+    
+    ListChans(vchlst%[],512+4096+8192+16384,Print$("=Hum%d",ach%),Print$("Hum%d",ach%),0); ' look for pre-existing virtual hum channel
+    if vchlst%[0]>0 then
+        ChanShow(vchlst%[1]);
+        Newsflash("Rejected hum channel already exists!",0,60,5,0);
+        i%+=1;
+        continue;
+    endif;
+    ndx%:=0;
+    repeat
+        ndx%+=1;
+    until  ach%=chlst%[ndx%];                           ' get index into channel array of the chosen channel (so we can find its partner)
+    kind%:= ChanKind(srcchlst%[ndx%]);
+    if kind%<>1 and kind%<>9 then
+        Newsflash("Error|Source channel not found",0,60,5,0);
+        i%+=1;
+        continue;
+    endif;     
+    expr$:=Print$("ch(%d) - ch(%d)",srcchlst%[ndx%],ach%);
+    vrtch%:=VirtualChan(0, "");                         ' create difference channel
+    VirtualChan(vrtch%, expr$,ach%);                    ' enter expression and match settings to raw data channel
+    ChanColour(vrtch%,1,16);                            ' trace colour: red
+    ChanTitle$(vrtch%,Print$("Hum%d",ach%));
+    ChanComment$(vrtch%,"Rejected Hum signal: ["+expr$+"]");
+    Optimise(vrtch%);
+    ChanShow(vrtch%);
+    if ChanOrder(ach%,0)>0 then                         ' if raw and processed channels are grouped then
+        ChanOrder(ach%,-1);                             ' ungroup so that rejected hum channel is not added to a group. 
+    endif;
+    ChanOrder(ach%,-1,vrtch%);                          ' next to source    
+    i%+=1;
+until ch%>0 or i%>chlst%[0];
+return 1;
+end;
+
+func SelShowHideDest%()                                 ' toggle display of <hr> waveform channels   (show/hide select)
+var chlst%[2001],i%,root$,ttl$;
+var lst2%[2001];                                        ' secondary list of quality control channels
+var lst%[2],pos%;
+
+LogClear%();
+if ViewKind(timevh%)<>0 then return 1; endif;
+View(timevh%);
+
+ListChans(chlst%[],1+512,"=\\+hr","+hr",0);             ' waveforms with <+hr> in the title
+if chlst%[0]=0 then return 1; endif;                    ' no cleaned channels found
+for i%:=1 to chlst%[0] do
+    ttl$:=ChanTitle$(chlst%[i%]);
+    pos%:=Instr(ttl$,"+");
+    root$:=Left$(ttl$,pos%-1);
+    
+    ListChans(lst%[],8+16384+4096,Print$("=Q\\. %s",root$),Print$("Q\\. %s",root$),3);       
+    if lst%[0]>0 then
+        lst2%[0]+=1;
+        lst2%[lst2%[0]]:=lst%[1];                       ' add to list of quality channels
+    endif;
+next;
+
+flipD%+=1;
+if flipD%>2 then flipD%:=0; endif;
+docase
+case flipD%=0 then
+    ChanShow(chlst%[]);                                 ' show < source>   channels
+    ChanShow(lst2%[]);    
+    ToolbarClear(swdest%);
+    ToolbarSet(swdest%,"Select &Processed||Toggle hide/show/select processed data channels",SelShowHideDest%);     
+    
+case flipD%=1 then                                      ' select   <  source>   channels
+    ChanSelect(-1,0);                                   ' unselect all
+    ChanShow(chlst%[]);
+    ChanShow(lst2%[]);
+    for i%:=1 to chlst%[0] do
+        ChanSelect(chlst%[i%],1);
+    next;
+    for i%:=1 to lst2%[0] do
+        ChanSelect(lst2%[i%],1);
+    next;
+    ToolbarClear(swdest%);
+    ToolbarSet(swdest%,"Hide &Processed||Toggle hide/show/select processed data channels",SelShowHideDest%);  
+    
+case flipD%=2 then
+    ChanHide(chlst%[]);                                 ' hide < source> channels
+    ChanHide(lst2%[]);    
+    ToolbarClear(swdest%);
+    ToolbarSet(swdest%,"Show &Processed||Toggle hide/show/select processed data channels",SelShowHideDest%);     
+endcase;
+return 1;
+end;
+
+func SelShowHideVirtual%()                              ' toggle display of <hr> waveform channels   (show/hide select)
+var vchlst%[2001],i%;
+
+LogClear%();
+if ViewKind(timevh%)<>0 then return 1; endif;
+View(timevh%);
+
+ListChans(vchlst%[],512+4096+8192+16384,"=Hum\\d","Hum\\d",3);
+if vchlst%[0]=0 then return 1; endif;                   ' no rejected hum channels found
+
+flipV%+=1;
+if flipV%>2 then flipV%:=0; endif;
+docase
+case flipV%=0 then
+    ChanShow(vchlst%[]);                                ' show < source>   channels 
+    ToolbarClear(swhrej%);     
+    ToolbarSet(swhrej%,"Select &Rejected||Toggle show/hide/select rejected hum channels",SelShowHideVirtual%);
+    
+case flipV%=1 then                                      ' select   <  source>   channels
+    ChanSelect(-1,0);                                   ' unselect all
+    ChanShow(vchlst%[]);
+    for i%:=1 to vchlst%[0] do
+        ChanSelect(vchlst%[i%],1);
+    next;
+    ToolbarClear(swhrej%);     
+    ToolbarSet(swhrej%,"Hide &Rejected||Toggle show/hide/select rejected hum channels",SelShowHideVirtual%);     
+    
+case flipV%=2 then
+    ChanHide(vchlst%[]);                                ' hide < source> channels
+    ToolbarClear(swhrej%);     
+    ToolbarSet(swhrej%,"Show &Rejected||Toggle show/hide/select rejected hum channels",SelShowHideVirtual%);          
+endcase;
+return 1;
+end;
+
+func SelShowHideSrc%()                                  ' toggle display of raw waveform channels that have a hr partner  (show/hide select)
+var chlst%[2001],i%,srcch$,n%;
+
+LogClear%();
+if ViewKind(timevh%)<>0 then return 1; endif;
+View(timevh%);
+
+ListChans(chlst%[],1+512,"=\\+hr","+hr",0);             ' waveforms with <+hr> in the title
+if chlst%[0]=0 then return 1; endif;                    ' no cleaned channels found
+
+var srcchlst%[chlst%[0]+1];
+for i%:=1 to chlst%[0] do                               ' make a list of source channels
+    n%:=InStr(ChanComment$(chlst%[i%]),"on ch. ");
+    srcch$:=Mid$(ChanComment$(chlst%[i%]),n%+6,3);      ' extract string containing source channel number
+    srcchlst%[i%]:=Val(srcch$);                         ' convert to number format
+    srcchlst%[0]+=1;     
+next;
+
+flipS%+=1;
+if flipS%>2 then flipS%:=0; endif;
+docase
+case flipS%=0 then
+    ChanShow(srcchlst%[]);                              ' show < source>   channels
+    ToolbarClear(swsrc%);
+    ToolbarSet(swsrc%,"Select &Raw||Toggle show/hide/select raw data channels",SelShowHideSrc%);     
+case flipS%=1 then                                      ' select   <  source>   channels
+    ChanSelect(-1,0);                                   ' unselect all
+    ChanShow(srcchlst%[]);
+    for i%:=1 to srcchlst%[0] do
+        ChanSelect(srcchlst%[i%],1);
+    next;
+    ToolbarClear(swsrc%);
+    ToolbarSet(swsrc%,"Hide &Raw||Toggle show/hide/select raw data channels",SelShowHideSrc%);     
+case flipS%=2 then
+    ChanHide(srcchlst%[]);                              ' hide < source> channels
+    ToolbarClear(swsrc%);
+    ToolbarSet(swsrc%,"Show &Raw||Toggle show/hide/select raw data channels",SelShowHideSrc%);     
+endcase;
+return 1;
+end;
+
+proc DeleteExtraChans()                                 ' delete instantaneous freq, mn. freq and interval histograms
+var i%;
+View(timevh%);
+if ChanKind(ifch%) =2 then
+	ChanDelete(ifch%);
+endif;
+if ChanKind(frch%) =2 then
+	ChanDelete(frch%);
+endif;
+for i%:=0 to 1 do
+	if  ViewKind(intvh%[i%])= 4 then
+		View(intvh%[i%]);
+		FileClose(0,-1);
+	endif;
+next;
+return;
+end;
+
+proc MakeExtraChans()                                   ' show instantaneous freq, mn. freq and interval histograms
+var nbins%:=5000,binsz:=0.0001;                         ' interval
+var dotsz%:=2;
+
+View(timevh%);
+binsz:=Max(Binsize(),binsz);                            ' added 21/11/2014  *****
+intvh%[0]:=SetInth(hmkch%,nbins%,binsz,binsz/2.0);      ' interval histogram centered on nominal mains frequency (offset by 1/2 bin)
+Process(stime,etime,1,1);
+Window(0,0,50,50,1);
+WindowTitle$(Print$("Nominal hum interval %.2fms",wide*1000.0));
+XRange(wide-0.002,wide+0.002);
+var Thum,sdhum;
+ChanFit(1,3,1);                                         ' set up 1st order Gaussian fit of ch. 1
+ChanFitCoef(1,0,0,0,1e+006);                            ' Set up fit coefficient 1
+ChanFitCoef(1,1,0,-1e+006,1e+006);                      ' coefficient 2
+ChanFitCoef(1,2,0,0,1e+006);                            ' coefficient 3
+ChanFitShow(1,1);                                       ' Set up fit display
+ChanFit(1,3,BinToX(XLow()),BinToX(XHigh()),0.0);        ' Fit to channel data
+Thum:=ChanFitCoef(1,1);                                 ' coefficient 1 is mean of distribution
+sdhum:=ChanFitCoef(1,2);                                ' coefficient 2 is stdev.
+Thum*=1000.0;                                           ' convert to ms
+sdhum*=1000.0;
+if thum>0 then
+    XTitle$(Print$("     Mean interval := %.2f +- %.3f ms. Mn. freq: %.2f Hz",Thum,sdhum,1000.0/Thum));
+    FrontView(intvh%[0]);
+    intvh%[1]:=SetInth(hmkch%,nbins%/10,0.001,0.0005);                                           ' wider interval histogram to spot gaps and harmonics
+    Process(stime,etime,1);
+    XRange(0.25*wide,6*wide+0.002);                     ' wide enough to spot significant gaps in the hum marker
+    YRange(1,0,20);
+    Window(50,0,100,50,1);
+    WindowTitle$("Large scale view");
+    FrontView(intvh%[1]);
+endif;
+View(timevh%);
+ifch%:=ChanDuplicate(hmkch%);
+ChanTitle$(ifch%,"i.Freq");
+DrawMode(ifch%,7,dotsz%);                               ' Inst. freq. dots
+Optimise(ifch%,Max(stime+0.6,XLow()),Min(etime-0.6,XHigh())); 'optimise visible range but excluding settle time of resonator
+ChanShow(ifch%);
+
+frch%:=ChanDuplicate(hmkch%);
+DrawMode(frch%,6,1.0);                                  ' mn freq per sec
+ChanTitle$(frch%,"Mn.Freq");
+ChanShow(frch%);
+
+Optimise(frch%,Max(stime+0.6,XLow()),Min(etime-0.6,XHigh())); 'optimise visible range but excluding settle time of resonator
+if hclvl=0 then hclvl :=fhum; endif;
+HCursorNew(ifch%,hclvl);                                      ' cursor at mid-point of optimised range
+HCursorLabel(1,1);
+return;
+end;
+
+proc CheckHumBtns();                                    ' Improve hum marker frequency buttons (fill gaps/ replace bad markers)
+ToolbarClear();
+ToolbarSet(swback%,"OK|0x0d| Accept and return to main toolbar. Shortcut: <Enter>", AcceptMkrs%);
+ToolbarSet(swretry%,"&Cancel|| Cancel and return to main toolbar.",CancelMkrs%);
+ToolbarSet(swreplaceC1C2%, "&Replace Time range||Replace hum markers between cursors with evenly spaced events",ReplaceC1C2%);
+ToolbarSet(swCftch1%, "&Fetch Cursors",FetchC1C2%);
+ToolbarText("Check the hum marker channel");
+ToolbarEnable(swreplaceC1C2%,off%);                     ' disable until cursors fetched
+'gapsflag%:=0;
+return;
+end;
+
+func FetchCsrs1%()
+var t;
+
+View(timevh%);
+DoCursors(2);
+t:=XLow()+0.3*(XHigh()-XLow());
+Cursor(1,t);
+return 1;
+end;
+
+func FetchCsrs2%()
+var t;
+
+View(timevh%);
+DoCursors(2);
+t:=XLow()+0.7*(XHigh()-XLow());
+Cursor(2,t);
+return 1;
+end;
+
+func C1Zero%()                                          ' button to toggle stime in Copy/Paste dialog
+View(timevh%);
+DoCursors(2);                                           ' don-t let user get away with deleting the cursors that we need
+Cursor(1,0.0);
+return 1;
+end;
+
+func C2MaxT%()                                          ' button to toggle etime in Copy/Paste dialog
+View(timevh%);
+DoCursors(2);
+Cursor(2,MaxTime());
+return 1;
+end;
+
+proc DoCursors(nc%)                                     ' set up one or two static cursors in time view
+var i%,n%,num%;
+
+n%:=nc%+1;
+CursorVisible(0,0);                                     ' hide cursor zero
+repeat
+	num%:=CursorDelete(n%);
+	if num%>0 then n%+=1; endif;                        ' delete cursors 3 to 9	
+until num%=0 or n%=9;
+
+for i%:=1 to nc% do
+	if CursorExists(i%) then
+		CursorActive(i%,0);                             ' force static mode
+		CursorVisible(i%,1);                            ' make sure we can see cursors
+	else
+		CursorNew(XLow()+((XHigh()-XLow())*i%/3.0),i%);		
+	endif;
+next;
+CursorRenumber();
+return;
+end;
+
+func AcceptMkrs%()                                      ' return from hum marker editing mode to main toolbar
+View(timevh%);
+'if not gapsflag% then
+'	DoFillGaps%(stime,etime,1);                         ' fill gaps in marker channel full (mode 1: time range)
+'endif;
+DeleteExtraChans();
+View(timevh%);
+Window(xl,yl,xh,yh,1);                                  ' restore previous window size
+if sch% > 0 or srcch% > 0 then                          ' hum marker was derived from a waveform channel
+	ChanComment$(hmkch%,Print$("based on ch. d; Resonator: %s; %s; level: %.3f",sch%,res$[resndx%],list$[mode%],level));
+	if sch% <> srcch% then                              ' source channel was waveform created by resonator
+		ChanDelete(srcch%);                             ' discard it 
+	endif;
+	ChanProcessClear(sch%);                             ' remove processes from hum marker source channel
+	Optimise(sch%);
+endif;
+MainToolBtns();
+DoButtons%("onx","",swprocess1%,swprocessall%,swAve%,swhmchk%,swhmarker%,0);
+Cursor(1,c1pos);
+Cursor(2,c2pos);
+return 1;
+end;
+
+func DoFillGaps%(st,et,mode%)                           ' fill gaps in hum marker channel and update interval histogram and fequency channels
+'mode%: 0, fill gap between cursors; 1: fill gaps over entire time range
+var newch%;
+newch%:=FillGaps%(hmkCh%,st,et,mode%);
+ChanDelete(hmkch%);
+hmkch%:=newch%;
+DeleteExtraChans();
+MakeExtraChans();
+if ChanKind(srcch%)=1 then     'keep channels is same order when doing multiple Replace Range operations
+    ChanOrder(0,-1,srcch%);    'put resonator channel at the top
+endif;
+'gapsflag%:=1;
+return 1;
+end;
+
+func ReplaceC1C2%()                                     ' replace hum markers in selected time range 
+var ok%,hcch%;
+
+View(timevh%);
+CursorRenumber();
+drandx%:=5;
+DlgCreate("Hum Frequency",dxra[drandx%],dyra[drandx%]);
+Dlgallow(511);
+DlgList(1,"Replace frequency"," 50 Hz| 60 Hz | HCursor",3);
+DlgButton(0,"Cancel",Cancelx%);
+DlgButton(1,"Replace (R)|0x52|Hotkey: R",OKx%);
+ok%:=DlgShow(rfndx%);
+docase
+case ok%=0 then return 1;
+case rfndx%=0 then wwide:=0.02; '50 Hz
+case rfndx%=1 then wwide:=0.166666667; '60 Hz
+case rfndx%=2 then 
+    hcch%:=HCursorChan(1);
+    if hcch%<>ifch% then
+        Message("Error|Horizontal cursor position does not represent a hum frequency"); return 1;
+    endif;
+    hclvl:=HCursor(1);
+    wwide :=1.0/hclvl;
+endcase;
+
+MemDeleteTime(hmkch%,3,Cursor(1),Cursor(2));
+DoFillGaps%(Cursor(1),Cursor(2),0);                     ' mode 0 for replace between cursors only
+return 1;
+end;
+
+func FetchC1C2%()
+View(timevh%);
+CursorSet(2);
+ToolbarEnable(swreplaceC1C2%,on%);
+return 1;
+end;
+
+func CancelMkrs%()                                      ' cancel hum marker editing and return to main toolbar
+var i%;
+ChanDelete(hmkch%);
+if ChanKind(srcch%) = 1 and sch% <> srcch% then         ' source channel was created by resonator
+	ChanDelete(srcch%);                                 ' discard it 
+endif;
+ChanProcessClear(sch%);                                 ' remove processes from hum marker source channel
+for i%:=0 to 1 do    
+	if ViewKind(intvh%[i%]) =4 then                     ' close interval histogram
+		View(intvh%[i%]);
+		FileClose(0, -1);
+	endif;
+next;
+Window(xl,yl,xh,yh,1);                                  ' revert to previous size
+MainToolBtns();
+Reset%();
+return 1;
+end;
+
+proc FilterWave(ch%)
+View(timevh%);
+ChanProcessClear(ch%);
+ChanProcessAdd(ch%, 2, 0.1);                            ' add 0.1 sec DC remove
+return;
+end;
+
+func DoCancel%(msg$,Tshow,xofs,yofs)                    ' option to cancel multi-channel processing 
+var dummy;
+Seconds(0);
+tfl:=Tshow;                                             ' reset the clock
+
+drandx%:=2;
+DlgCreate("Info",dxra[drandx%],dyra[drandx%],0,0,0,1);
+DlgLabel(1,msg$);
+DlgAllow(1023,TmrIdl%);                                 ' Idle routine does the timing
+DlgText("(Space bar)",3+xofs,2+yofs);
+DlgText("(Enter)",16+xofs,2+yofs);
+DlgButton(0,"Stop|0x20",Cancelx%,3+xofs,3+yofs);        ' hotkey: <Spacebar>
+DlgButton(1,"Continue|0x0d",OKx%,14+xofs,3+yofs);       ' <Enter>
+break%:=DlgShow(dummy);
+if timeoutflg%=1 then
+    break%:=1;
+endif;                                                  ' continue auto processing if this dialog closes automatically after wait time expires
+Yield();                                                ' time to close the dialog
+return break%;
+end;
+
+func ProcessAll%()                                      ' automatically process next channel
+var break%,msg$,vh%;
+
+View(LogHandle()).Windowvisible(2);
+break%:=1;
+while ChanSelect(-1) > 0 and break% = 1 do
+	AverageSet%();
+    if scanchk%=1 then                                  ' edit regions of high biological activity   if the box is checked (default)
+        AutoEdit%();
+    endif;
+    ToolbarText(Print$("Removing hum from channel %d",wch%));
+	CleanUpWv%();
+    if scanchk%=1 then
+        NswPlot%();                                     ' plot quality control channel
+        msg$:= Print$("\t  %.1f%% of Epochs (%4d  of %4d) with low sweep count.\n\n \tProportion:\t <10% \t <20% \t <30% \n \tN epochs:\t %4d \t %4d \t %4d\n\n"+
+        "Option: Retry with fewer epochs OR disable physiological activity filter\n        to reduce number of epochs with low sweep count.",ArrSum(nsw%[])*100.0/nepochs%,ArrSum(nsw%[]),nepochs%,nsw%[0],nsw%[1],nsw%[2]);
+        if Chanselect(-1)>0 then
+            break%:=DoCancel%(msg$,10.0,15,3);
+        else
+            vh%:=View();
+            View(Loghandle());
+            EditSelectAll();
+            EditClear();
+            Window(0,75,45,97);
+            Printlog("%s\n",msg$);
+            WindowVisible(1);                           ' print results to log if this is the last one
+            View(vh%);
+        endif;
+    else
+        if ChanSelect(-1)> 0 then                       ' more to do
+            var mg$;
+            mg$:=Print$("Finished processing %s (ch: %d) %.1f - %.1fs.",ChanTitle$(wch%),wch%,stime,etime);
+            break%:=DoCancel%(mg$,twait,0,0);           ' opportunity to cancel auto-processing     "Interrupt auto processing?"
+        endif;
+    endif;
+wend;
+if ChanKind(hmkch%) >= 2  then  ChanDelete(hmkch%); endif; ' delete hum marker buffer 
+ToolbarText("Hum cancellation finished.");
+Toolbarenable(swhmchk%,off%);
+return 1;
+end;
+
+func Process1%()                                        ' automatically process next channel
+var ok%;                                        ' ,nch%;
+
+View(LogHandle()).Windowvisible(2);
+ok%:=AverageSet%();
+if ok%<0 then return 1; endif;                          ' no more channels to process
+
+if scanchk%=1 then
+    AutoEdit%();                                        ' edit regions of high biological activity   if the box is checked (default)
+endif;
+ToolbarText(Print$("Removing hum from channel %d",wch%));
+CleanUpWv%();
+
+if scanchk%=1 then
+    NswPlot%();                                         ' plot quality control channel
+endif;
+
+'if ChanKind(hmkch%) >= 2  then  ChanDelete(hmkch%); endif; ' delete hum marker buffer 
+ToolbarText("Hum cancellation finished.");
+Toolbarenable(swhmchk%,off%);
+return 1;
+end;
+
+func NswPlot%()                                         ' colour coded marker showing number of sweeps in the average for each epoch
+var mch%,t,code%[4],i%;
+var chlst%[2];
+
+View(timevh%);
+
+ListChans(chlst%[],8+4096+16384,Print$("=Q\\. %s",ChanTitle$(wch%)),Print$("Q\\. %s",ChanTitle$(wch%)),3); ' do we have a 'quality' channel for this source already?
+if chlst%[0]=0 or newchflg%=1 then                      ' if no valid quality channel exists then create a new one
+    mch%:=MemChan(5);                                   ' new marker
+    DrawMode(mch%,15,0);                                ' in states mode
+    ChanWeight(mch%,0.5);
+    newchflg%:=0;
+else
+    mch%:=chlst%[1];                                    ' use existing
+endif;
+
+var n,nexpected,ratio,rpag%;
+ArrConst(nsw%[],0);
+nexpected:=Round(epdur*fhum);
+
+t:=NextTime(cych%,stime-Binsize());
+for i%:=0 to nepochs%-1 do
+    n:=Count(hmkch%,t,t+epdur);
+    ratio:=n/nexpected;
+    docase
+    case ratio <= 0.1 then rpag%:=4; nsw%[0]+=1;        ' highlight averages with low sweep count (<10%: red)
+    case ratio <= 0.2 then rpag%:=5; nsw%[1]+=1;        ' intermediate sweep count (<20%: pink)      
+    case ratio <=0.3  then rpag%:=6; nsw%[2]+=1;        ' intermediate sweep count (<30%: amber
+    else
+        rpag%:=2;                                       ' else green
+    endcase;    
+    code%[0]:=rpag%;                                    ' set colour for epoch
+    MemSetItem(mch%,0,t,code%[]);
+    t+=epdur;
+next;
+if t+epdur<(MaxTime()-1) then
+    code%[0]:=0;
+    MemSetItem(mch%,0,t-BinSize(),code%[]);             ' add a terminator else last colour will extend to MaxTime()
+endif;
+
+ChanTitle$(mch%,Print$("Q. %s",ChanTitle$(wch%)));
+
+ChanShow(mch%);
+ChanOrder(wch%,-1,mch%);
+
+View(Loghandle());
+TabSettings(17);
+EditSelectAll();
+EditClear();
+PrintLog("WARNING\nChannel  %d\tRange\t%.1fs  -  %.1fs\n%.1f%% of Epochs (%4d of %4d) with low sweep count.\n\n",wch%,stime,etime,ArrSum(nsw%[])*100.0/nepochs%, ArrSum(nsw%[]),nepochs%);
+PrintLog("\t  <10%\t <20%\t  <30%\nEpoch Count\t%4d\t%4d\t%4d\n",nsw%[0],nsw%[1],nsw%[2]);
+Window(0,80,45,97);
+WindowVisible(1);
+FrontView();
+View(timevh%);
+return 1;
+end;
+
+proc WeightedAverage(t,ofs,ra[][],&buffer[])            ' creating running average of hum by weighting averages of adjacent epochs
+'t is time of current hum cycle
+'ofs: offset between raw data and average; used for splining
+'ra[][][] holds waterfall of epoch by epoch averages (formerly, vw: handle of the waterfall plot)
+'buffer[]: returns the weighted average
+var sz%; sz%:=wide*1.2/View(timevh%).BinSize(wch%);     ' number of points in each average
+var arr1[sz%],arr2[sz%];
+var ep%,which%,frc,frac1,frac2;
+
+'which epochs do we need to create the weighted average?
+ep%:= (t-stime)/epdur;                                  ' zero-based epoch number of the current hum cycle
+frc:=Frac((t-stime)/epdur);                             ' fractional position of current marker within current epoch
+if frc <= 0.5 then
+	which%:=ep%-1;                                      ' combine with the previous epoch
+else
+	which%:=ep%+1;                                      ' combine with the next epoch
+endif;
+ArrConst(arr1[],ra[][ep%]);                             ' copy of current epoch
+ArrConst(arr2[],ra[][which%]);                          ' previous or next epoch as required
+frac1:=1.0-Abs(0.5-frc);                                ' proportion of current epoch based on distance from the mid-point
+frac2:=1.0-frac1;                                ' the remaining proportion is contributed by the neighbouring epoch
+ArrMul(arr1[],frac1);
+ArrMul(arr2[],frac2);
+ArrAdd(arr1[],arr2[]);
+if ast%>=10 then
+    ArrSpline(buffer[],arr1[aSt%-10:],1.0,ofs);
+else
+    ArrConst(buffer[],arr1[ast%:]);                     ' not enough pre-trigger points for splining 
+endif;
+return;
+end;
+
+func CleanUpWv%()                                       ' for each hum cycle, subtract the average from the waveform
+var w%, t, tWave, tEnd, nRead%,cmt$,ttl$;
+var ch%;                                                ' channel in average view containing hum level for current epoch
+var dur;                                                ' time marker for end of current epoch
+var wave[npc%+20];
+var rch%;                                               ' channel holding the cleaned up waveform
+var ln%;
+var sz%;
+
+ln%:=Len(ra[][0]);
+var buffer[ln%];                                        ' array for splined copy of average
+var offset;
+
+View(timevh%);
+ChanProcessClear(wch%);                                 ' get rid of DC Remove process before subtracting averages
+w%:=MemChan(0,wch%);                                    ' do noise subtraction in memory buffer
+YRange(w%,YLow(wch%),YHigh(wCh%));
+if (w% < 0) then 
+	NewsFlash(Error$(w%),2.5,60,5,1);
+	return 1;
+endif;
+
+t:=stime-BinSize();                                     ' start at stime not zero!
+ch%:=1;
+dur:=stime+epdur;
+sw%:=0;                                                 ' reset switch
+var ntot,nb;                                            ' number of cycles / bad cycles
+
+repeat
+	t := NextTime(cyCh%, t);                            ' next cycle to process start (included)
+    ' note that we use the original cycle marker NOT the edited copy which is used for creating averages
+    if t mod 60.0 <0.016 then                           ' update every 30s
+        ToolbarText(Print$("Removing hum from channel: %d.    Time: %.1f s",wch%,t)); ' show progress on toolbar
+    endif;
+    if t mod 600.0 <0.016 then                          ' update every 30s
+        Yield();                                        ' keep system responsive
+    endif;
+	docase
+	case (t<0) then                                     ' this should not happen with a reliable hum marker!
+		NewsFlash("No cycles found.",2.5,60,5,1);
+		return 1;
+	case t > dur then
+		ch%+=1;                                         ' go to next epoch in the average
+		dur+=epdur;
+	endcase;
+	tEnd := NextTime(cyCh%, t);                         ' end of this cycle (not included)
+    sz%:=(tEnd - t)/BinSize(w%);                        ' number of samples in current cycle
+    docase
+    case sz% > npc%+20 then                             ' gap between triggers was much longer than one hum cycle
+        ' this should never occur if hum trigger source is reliable!
+        MemImport(w%,wch%,t,tend);                      ' just copy the raw data without subtracting the average (avoids gaps where we can t remove hum)
+        tEnd -= BinSize(wch%);                          ' back one clock tick
+        nb+=1;
+        ntot+=1;
+	case tEnd > 0 then
+		tEnd -= BinSize();                              ' back one clock tick
+		nRead% := ChanData(wCh%, wave[], t, tEnd, tWave);
+		if nRead%>0 then                                ' if data present, ie, not a gap then process it
+			offset:=(10.0*BinSize(wch%)+(twave-t))/BinSize(wch%); ' offset for splining
+            if trackchk% and t > stime+1.5*epdur  and ch% < nepochs% then
+                WeightedAverage(t,offset,ra[][],buffer[]);
+			else
+				if ast% < 10 then
+					ArrConst(buffer[], ra[aSt%:][ch%-1]); ' too few pre-trigger points for splining
+				else
+                    ArrSpline(buffer[],ra[aSt%-10:][ch%-1],1.0,offset); ' align the waveform and average hum data
+				endif;           
+			endif;
+			ArrSub(wave[:nRead%],buffer[]);             ' subtract mean hum from the signal
+			MemSetItem(w%, 0, tWave, wave[:nRead%]);    ' add next cycle of cleaned up waveform
+		endif;		
+        ntot+=1;
+	endcase;
+	t := tEnd;
+until t<0 or t>=(etime-BinSize(wch%));
+ToolbarText(Print$("Saving cleaned version of channel %d",wch%));
+
+Optimise(w%);
+ChanColour(w%,1,28);                                    ' set a different colour for cleaned channels
+if trackchk% and nepochs% > 1 then cmt$:="+tracking"; else cmt$:=""; endif;
+ChanComment$(w%,Print$("based on ch. %d + hum remove. Epochs: %d  %s",wch%,nepochs%,cmt$));
+if Len(ChanTitle$(wch%)) = 0 then
+    ttl$:=Print$("ch:%d+hr",wch%);                      ' title based on channel number if title of raw data is missing or too long
+else
+    ttl$:=Print$("%s+hr",ChanTitle$(wch%));
+endif;
+ChanUnits$(w%,ChanUnits$(wch%));
+ChanTitle$(w%,ttl$);
+
+var chlst%[2],t$,t1$,t2$,pos%;
+
+if s2v%>803 then
+    pos%:=Instr(ttl$,"+");                              ' make sure + sign recognised as a normal character
+    t1$:=Left$(ttl$,pos%-1);
+    t2$:=Mid$(ttl$,pos%);
+    t$:=Print$("=%s\\%s",t1$,t2$);
+    ChanList(chlst%[],t$,1+512+2048);
+else
+    FChanList%(chlst%[],1+512+2048,ttl$,0);             ' look for pre-existing channels with this title
+endif;
+
+if chlst%[0]>0 then
+    if LastTime(chlst%[1],MaxTime()+1)<stime then       ' possible to append current time range to existing channel
+        rch%:=ChanSave(w%,chlst%[1],0,stime,etime,stime); ' append
+    else
+        NewsFlash("Warning|Unable to append this data to existing channel.\n"+
+        "Data will be saved to a new channel.",4,0,5,1);
+        newchflg%:=1;
+        rch%:=ChanSave(w%,0);                           ' else add to a new channel
+    endif;
+else
+    rch%:=ChanSave(w%,0);                               ' else add to a new channel
+endif;
+
+if rch% > 0 then
+	ChanDelete(w%);
+else
+	rch%:=w%;
+	Message("Failed to save cleaned version of channel %d (%s). No more disk channels available.",wch%,ChanTitle$(wch%));    
+endif;
+if dcremchk% then
+    ChanProcessClear(rch%,-1);
+    ChanProcessClear(wch%,-1);     
+	ChanProcessAdd(rch%, 2, 0.02);                      ' add DC remove to cleaned channel
+	ChanProcessAdd(wch%, 2, 0.02)                       ' and raw data channel  
+endif;
+ChanShow(rch%);
+ChanOrder(wch%,-1,rch%);                                ' cleaned channels above originals
+Optimise(wch%);
+
+MainToolBtns();
+DoButtons%("onx","",swprocess1%,swprocessall%,0,0,0,0);	
+View(timevh%);
+if sel% = -3 and ChanSelect(-1) > 0 then                ' more channels to do
+	DoButtons%("on","",swprocess1%,swprocessall%,0,0,0,0);
+endif;
+if nb > 0 then
+    nb*=100.0/ntot;
+    Newsflash(Print$("Unable to remove hum on % .1f percent of data on channel: %d.",nb,wch%),5.0,60,5,1);
+endif;
+ToolbarText("");
+return 1;
+end;
+
+func AutoEdit%()                                        ' edit entire time range removing cycle markers where we suspect neural activity 
+'	will distort mean hum measurement
+
+var pcdone%,pclast%,tr;
+
+View(timevh%);
+tr:=etime-stime;
+Yield();                                                ' allow screen to update
+ts:=stime-Binsize();
+while (DoNext%() >= 0) do
+    MemDeleteTime(hmkch%, 3, ts-wide/2.0, te);
+    pcdone%:=(te-stime)*100.0/tr;
+    if pcdone%>pclast%+1 then                           ' 5% increments
+        ToolbarText(Print$("Excluding episodes of high physiological activity on ch. %d.   Progress:  %3d%",wch%,pcdone%));
+        pclast%:=pcdone%;
+        Yield();
+    endif;
+wend;
+trigch%:=MakeAverage%(hmkch%);                          ' create new average after excluding unsuitable cycles
+View(timevh%);
+Yield();                                                ' update screen
+return 1;
+end;
+
+func AverageSet%()                                      ' create average waveform triggered by selected hum trigger channel
+var nsel%;
+
+View(timevh%);
+nsel%:= ChanSelect(-1);
+docase
+case sel% = -3 and nsel% > 0 then                       ' found selected channels
+	var chlist%[nsel%+1];
+	ChanList(chlist%[],1+512+65536);                    ' list of selected waveform channels
+	wch%:=chlist%[1];                                   ' work on first channel in selected list
+	ChanSelect(chlist%[1],0);                           ' unselect it
+case sel%=-3 and nsel%=0 then
+    ToolbarEnable(swprocess1%,off%);
+    ToolbarEnable(swprocessall%,off%);
+    ToolbarEnable(swset%,on%);     
+    NewsFlash("No more selected waveform channels.",2,60,5,0);
+    return -1;
+else
+    ' a single waveform channel was selected     
+endcase;
+'PROBLEM HERE !!!
+'if ChanKind(hmkch%) >= 2  then  ChanDelete(hmkch%); endif; ' delete old average marker channel
+hmkch%:=MemChan(0,cych%);
+MemImport(hmkch%,cych%,stime,etime);                    ' import hum markers into memory buffer
+'Chanshow(hmkch%);
+trigch%:=MakeAverage%(hmkch%);                          
+return 1;
+end;
+
+func MakeAverage%(trigch%);                             ' generate single or multi-epoch average of a waveform channel triggered by hum markers
+var yu$;
+var vh%;
+var st,epdur,ch%;
+var bins%, binSz;
+var stp%;
+stp%:=nepochs%/10;
+if stp%=0 then stp%:=1; endif;
+
+View(timevh%);
+ToolbarText(Print$("Preparing to process channel %d.",wch%));
+FilterWave(wCh%);                                       ' delete channel processes and add a DC remove
+binSz := BinSize(wCh%);
+bins% := wide*1.2/binSz;
+var stdev[bins%];                                       ' array for copying error bar info
+npc% := wide/Binsize(wCh%);                             ' points per cycle
+yu$:=ChanUnits$(wch%);
+
+resize ra[bins%][nepochs%];
+ArrConst(ra[][],0.0);                                   ' initialise waterfall array
+
+vh% := SetAverage(wCh%, bins%, wide*0.10, trigch%, 1+4+32,3); ' mean,+ cubic spline
+'+ 32: count items per bin. Average is based on number of data points processed NOT number of triggers.
+'This means that gaps in the waveform data do not distort the average
+st:=stime;
+epdur:=(etime-stime)/nepochs%;
+aSt% := -BinToX(0)/binSz;                           ' offset to start of cycle (aSt% is number of pre-trigger points)
+if scanchk%=0 then                                      ' no exclusion of areas of high amplitude physiological signals from average calculation
+    for ch%:=1 to nepochs% do
+        if ch% mod stp%=0 then
+            ToolbarText(Print$("Channel: %d.  Measuring hum level in epoch %d of %d",wch%,ch%,nepochs%)); ' update progress at intervals
+        endif;
+        View(vh%);
+        Process(st,st+epdur,1,1);                       ' process time range into average
+        ArrConst(ra[][ch%-1],View(vh%).[]);             ' copy average to waterfall array
+        st+=epdur;                                      ' start of next time range
+    next;    
+else
+    resize sdv[nepochs%];
+    for ch%:=1 to nepochs% do
+        ToolbarText(Print$("Channel: %d.  Measuring hum level in epoch %d of %d",wch%,ch%,nepochs%));
+        View(vh%);
+        Process(st,st+epdur,1,1);                       ' process time range into average
+        BinError(1,0,stdev[:npc%],0);                   ' get sd per point
+        sdv[ch%-1]:= ArrSum(stdev[:npc%]);
+        sdv[ch%-1] /= npc%;                             ' form the mean st dev per point for each epoch
+        ' ---------------
+        ArrConst(ra[][ch%-1],View(vh%).[]);             ' copy average to waterfall array
+        ' ---------------
+        st+=epdur;                                      ' start of next time range
+    next;
+endif;
+View(vh%);                                              ' delete average
+FileClose(0,-1);
+return trigch%;
+end;
+
+func Delsel%();                                         ' delete selected channels
+var chlst%[2001],chspec$;
+
+View(LogHandle()).Windowvisible(2);
+View(timevh%);
+ChanList(chlst%[],1+512+65536);                         ' selected waveforms and RealWaves
+if chlst%[0]>0 then
+    drandx%:=3;
+    chspec$:= Chan$(chlst%[]);
+    DlgCreate("Delete",dxra[drandx%],dyra[drandx%],42,0,0,1);
+    DlgAllow(511);
+    DlgText("Selected channels",0,1);
+    DlgGroup("",26,0.6,14,1.1);
+    di%:=DlgText(chspec$,-2,1,12);
+    DlgButton(0,"");
+    DlgButton(1,"Close",OKx%,-2,4);
+    DlgButton(2,"S&Kip|0x4b|Hotkey:  K;  Keep the next channel in the list",Skip%,-2,3);
+    DlgButton(3,"Delete Next|0x20",DelNext%,2,3);       ' |Hotkey:  <Space Bar>
+    DlgButton(4,"  Delete All  |0x0d",DelAll%,2,4);     ' |Hotkey: <Enter>
+    DlgText("Shortcuts",17,2.1);
+    DlgText("<Space bar>",17,3);    
+    DlgText("<Enter>",17,4);
+    DlgShow();        
+endif;
+return 1;
+end;
+
+func Skip%()
+var chlst%[2001],ret%:=1, chspec$;
+
+View(timevh%);
+ChanList(chlst%[],1+512+65536);                         ' selected waveforms and RealWaves
+if chlst%[0]<2 then
+    ret%:=0;                                            ' close dialog if no items left to delete
+    ChanSelect(-1,0);                                   ' unselect any remaining channels
+    DlgGetPos(dxra[drandx%],dyra[drandx%]);             ' update stored dialog position
+else
+    ChanSelect(chlst%[1],0);                            ' un-select first item in list
+    ChanList(chlst%[],1+512+65536);                     ' update the list
+    chspec$:=Chan$(chlst%[]);
+    DlgValue$(di%,chspec$);
+endif; 
+return ret%;
+end;
+
+func DelNext%()
+var chlst%[2001],ret%:=1, chspec$;
+var qchlst%[2],ttl$,pos%,root$;
+var vchlst%[2],q%,pos2%;
+
+View(timevh%);
+ChanList(chlst%[],1+512+65536);                         ' selected waveforms and RealWaves
+ttl$:=ChanTitle$(chlst%[1]);                            ' get title of channel to delete
+
+if chlst%[0]>0 then
+    pos%:=Instr(ttl$,"+hr");
+    pos2%:=Instr(ttl$,"Hum");
+    if pos%=0 and pos2%=0 then                          ' this channel looks like raw data
+        q%:=1;                                          ' query the user before deleting it
+    endif;
+    ChanDelete(chlst%[1],q%);                           ' delete next channel
+    
+    pos%:=Instr(ttl$,"+hr");
+    if pos%>0 then                                      ' +hr channel found. Search for matching "Q" channel
+        root$:=Left$(ttl$,pos%-1);
+        
+        ListChans(qchlst%[],8+16384+4096,Print$("=Q\\. %s",root$),Print$("Q\\. %s",root$),3); ' search for a matching quality channel
+        ListChans(vchlst%[],512+4096+16384,Print$("=Hum%d",chlst%[1]),Print$("Hum%d",chlst%[1]),0); ' search for corresponding rejected hum channel
+        ChanDelete(qchlst%[]);                          ' delete Q channel
+        Chandelete(vchlst%[]);                          ' delete rejected hum channel
+    endif;    
+    
+    ChanList(chlst%[],1+512+65536);
+    if chlst%[0]>0 then                                 ' we have more selected channels
+        chspec$:=Chan$(chlst%[]);                       ' update the display
+        DlgValue$(di%,chspec$);        
+    else
+        DlgGetPos(dxra[drandx%],dyra[drandx%]);         ' update stored dialog position
+        ret%:=0;                                        ' close the dialog
+    endif;
+else
+    ret%:=0;    
+endif;
+return ret%;
+end;
+
+func DelAll%()
+var chlst%[2001],vchlst%[2001],ttl$,pos%,pos2%,q%,i%;
+
+View(timevh%);
+ChanList(chlst%[],1+512+65536);                         ' selected waveforms and RealWaves
+for i%:=1 to chlst%[0] do
+    q%:=0;
+    ttl$:=ChanTitle$(chlst%[i%]);
+    pos%:=Instr(ttl$,"+hr");
+    pos2%:=Instr(ttl$,"Hum");
+    if pos%=0 and pos2%=0 then                          ' looks like a raw data channel
+        q%:=1;                                          ' query user before deleting
+    endif;
+    ChanDelete(chlst%[i%],q%);
+next;
+
+pos%:=InStr(ttl$,"+hr");                                ' if this was a list of 'hum removed' channels then...
+if pos%>0 then                                          ' 'search for corresponding 'rejected hum' channels
+    
+    ListChans(vchlst%[],512+4096+16384,"=^Hum\\d","\\<Hum\\d",3);
+    ChanDelete(vchlst%[]);
+endif;
+
+ChanList(chlst%[],8+16384+4096+65536);
+ChanDelete(chlst%[]);                                   ' delete selected marker chans (Q. ) chans
+DlgGetPos(dxra[drandx%],dyra[drandx%]);                 ' update stored dialog position
+return 0;
+end;
+
+func ChGroup%()                                         ' overdraw or split pairs of channels (i.e. raw and cleaned-up channels)
+var lst%[2],n%,nch%,i%,ndx%,channr$,chan%;
+
+View(LogHandle()).Windowvisible(2);
+View(timevh%);
+nch%:=ChanList(lst%[],1+512+2048);                          ' visible waveforms
+var chlst%[nch%+1];
+ChanList(chlst%[],1+512+2048);
+i%:=1;
+repeat
+	n%:=ChanOrder(chlst%[i%],0);
+	i%+=1;
+until i% > nch% or n% > 0;                          ' until we find a group or  checked all
+
+if n% > 0 then                                          ' split all groups
+	for i%:= 1 to chlst%[0] do
+		ChanOrder(chlst%[i%],-1);                       ' ungroup all
+	next;
+	Optimise(-1);
+    ChanSelect(-1,0);
+    groupflg%:=0;
+    ToolbarEnable(swofsdwn%,off%);
+    ToolbarEnable(swofsup%,off%);
+else                                                    ' group related channels
+	for i%:=1 to nch% do
+		ndx%:=InStr(ChanComment$(chlst%[i%]),"based on ch. ");
+		if ndx% > 0 then
+			channr$:=Mid$(ChanComment$(chlst%[i%]),ndx%+13,4);
+			chan%:=Val(channr$);
+            ChanShow(chan%);                            ' can't group channels unless both are visible
+			Optimise(chan%);
+			ChanOrder(chan%,0,chlst%[i%]);              ' overdraw with the raw data channel 
+			YAxisLock(chan%,1,(YHigh(chan%)-YLow(chan%))/2.0);
+			Optimise(chan%);
+            ChanSelect(chan%,1);
+            groupflg%:=1;                               ' flag that at least one group was created
+		endif;
+	next;
+    ToolbarEnable(swofsdwn%,on%);
+    ToolbarEnable(swofsup%,on%);
+endif;
+return 1;
+end;
+
+func OfsUp%()                                           ' increase offset between selected group of channels
+GroupOffset(1);
+return 1;
+end;
+
+proc GroupOffset(sel%);                                 ' adjust offset of grouped waveform channels
+var chlst%[10],state%,offset,firstch%,i%,inc;
+
+View(timevh%);
+ChanList(chlst%[],1+512+65536);                                 ' selected waveform channels
+for i%:=1 to chlst%[0] do
+	if ChanOrder(chlst%[i%],0) > 1 then                 ' selected channel is member of a group
+		state%:=YAxisLock(chlst%[i%]);
+		if state% then                                  ' locked
+			offset:=YAxisLock(chlst%[i%],-1);           ' get current offset
+			firstch%:=ChanOrder(chlst%[i%],1);           ' first channel in group dictates the displayed YRange
+			inc:=(YHigh(firstch%)-YLow(firstch%))*0.05;
+			if sel% =1 then
+				offset+=inc;                            ' increase offset
+			else
+				offset-=inc;                            ' decrease offset
+			endif;               
+			YAxisLock(chlst%[i%],1,offset);
+			Optimise(firstch%);                         ' re-optimise group
+		endif;
+	endif;
+next;
+return;
+end;
+
+func OfsDwn%()                                          ' decrease offset between selected group of channels
+var offset;
+GroupOffset(0);
+return 1;
+end;
+
+func DoNext%()                                          ' bracket regions with high sd of waveform so they can be excluded from average hum
+var t, err, bGot%;
+var epochnr%;
+
+Seconds(0);
+View(timevh%);
+t := ts;                                                
+repeat
+	t := NextTime(hmkch%, t);                           ' find start of next cycle
+	if (t<0) or t>=(etime -BinSize(wch%)) then return -1; endif; ' end of file
+	err := ErrorAt(t);                                  ' get sd.
+    if Seconds()>2.0 then                               ' keep system responsive during looping
+        Yield();
+        Seconds(0);
+    endif; 
+	if bGot% then                                       ' use cursor 2 to mark the end of a suspect time range
+        te:=t;
+	else
+        ts:=t;                                          ' advance towards start of next suspect time range
+	endif; 
+	epochnr%:=(t-stime)/epdur;
+	if bGot% then
+		if err < sdv[epochnr%] then
+			return t;
+		endif;                                          ' return end-time of a suspect range (range bracketed by cursors will be deleted)
+	else
+		if err > sdv[epochnr%] or err <0 then           ' suspect data or absent data 
+			bGot% := 1
+		endif;                                          ' found beginning of suspect range
+	endif;
+until t<0;
+return -1;
+end;
+
+func ErrorAt(t)                                         ' return the mean standard deviation of current cycle, 0 if no data; -1 if not an exact hum cycle
+var work[npc%], nGot%, mean,ftime,ep%;                  ' space for 1 cycle
+nGot% := ChanData(wCh%, work[], t, MaxTime(),ftime);
+ep%:=(t-stime)/epdur; 
+docase
+case ngot%=0 then return -1;                            ' gap in data
+case ftime>t+BinSize(wch%)then return -1;               ' gap in data
+case nGot% <> npc% then return -1;                      ' data but not an exact hum cycle
+else
+    ArrSub(work[], ra[aSt%:][ep%]);                     ' form difference between raw data and average for relevant epoch
+	ArrMul(work[], work[]);                             ' differences squared
+	ArrSum(work[], mean);                               ' average variance of a point
+endcase;
+return Sqrt(mean);                                      ' mean standard deviation
+end;
+
+proc DoCancel(msg$,Tshow)                               ' option to cancel multi-channel processing 
+var dmy;
+
+Seconds(0);
+tfl:=Tshow;                                             ' reset the clock
+drandx%:=9;
+DlgCreate("Info",dxra[drandx%],dyra[drandx%],0,0,0,1);
+DlgLabel(1,msg$);
+DlgAllow(511,TmrIdl%);                                  ' Idle routine does the timing
+DlgText("(Esc)",5,2);
+DlgText("(Enter)",16,2);
+DlgButton(0,"Stop|0x1b",Cancelx%,3,3);                  ' hotkey: <Esc>
+DlgButton(1,"Continue",OKx%,14,3);                      '  "     <Enter>
+break%:=DlgShow(dmy);
+if timeoutflg%=1 then
+    break%:=1;
+endif;                                                  ' continue auto processing if this dialog closes automatically after wait time expires
+return;
+end;
+
+func TmrIdl%();                                         ' Newsflash idle routine
+var ret%:=1;
+timeoutflg%:=0;
+if Seconds() > tfl then                                 ' times up
+	ret%:= 0;                                           ' so close message box
+    timeoutflg%:=1;
+endif;
+return ret%;
+end;
+
+proc ProfileGet();                                      ' get info from registry
+Profile("HumRemove","track",0,trackchk%);               ' running average hum off/on
+Profile("HumRemove","dcrem",0,dcremchk%);               ' dc remove off/on
+Profile("HumRemove","neps",1,nepochs%);                 ' number of epochs to use
+return;
+end;
+
+proc ProfileSet();                                      ' store settings in registry
+Profile("HumRemove","track",trackchk%);                 ' running average hum off/on
+Profile("HumRemove","dcrem",dcremchk%);                 ' dc remove off/on
+Profile("HumRemove","neps",nepochs%);                   ' number of epochs to use
+return;
+end;
+
+func Guide%()                                           ' show /hide user guide
+var vh%,sline%,eline%,ok%;
+var vis%;
+
+vh%:=View();
+if ViewKind(guidevh%)=1 then                            ' guide exists
+    View(guidevh%);
+    vis%:=WindowVisible();                              ' visible or hidden?
+    docase
+    case vis%=0 or vis%=2 then                          ' if hidden or iconised
+        Window(0,0,100,100);                            ' show it
+        Windowvisible(1);
+        FrontView(guidevh%);
+        
+    case vis%=3 then                                    ' if maximised then convert to normal
+        Window(0,0,100,100);
+        Windowvisible(1);
+        FrontView(guidevh%);
+        
+    case Windowvisible(1) then                          ' if visible then hide
+        WindowVisible(2);
+    endcase;
+else                                                    ' Guide view not found. Create it
+    View(App(3));
+    MoveTo(0,0);
+    ok%:=EditFind("OVERVIEW",1,1);
+    if ok% then
+        sline%:=MoveBy(1);                              ' start line
+    else    
+        ToolbarEnable(helpbtn%,0);                      ' disable button if we cannot find the Help text
+        return 1;
+    endif;
+    
+    ok%:=EditFind("'**xx**",1,1);
+    if ok% then
+        eline%:=MoveBy(1);                              ' end line
+    else
+        ToolbarEnable(helpbtn%,off%);                   ' disable
+        return 1;
+    endif;
+    MoveTo(0,0,sline%);
+    MoveTo(1,0,eline%);                                 ' select user guide
+    EditCopy();                                         ' copy to clipboard
+    MoveTo(0,0);                                        ' unselect
+    guidevh%:=FileNew(1,0);                             ' new 'guide' text window
+    WindowTitle$("USER GUIDE");
+    EditPaste();
+    MoveTo(0,0);
+    repeat
+        ok%:=EditFind("'",1);
+        if ok% then EditCut(); endif;                   ' remove all apostrophes
+    until ok%=0;
+    MoveTo(0,0);
+    repeat
+        ok%:=EditFind("                    ",1);
+        if ok% then EditCut(); endif;                   ' remove multi-repeated spaces
+    until ok%=0;
+    MoveTo(0,0);
+    Window(0,0,100,100);
+    FrontView(guidevh%);
+endif;
+View(vh%);
+return 1;
+end;
+
+func Prefs%();
+drandx%:=4;
+DlgCreate("Preferences",dxra[drandx%],dyra[drandx%],0,0,0,1);
+DlgAllow(511);
+DlgReal(1,"Delay before Auto-processing next channel in a list. (s)",1,30,0,0,1);
+DlgReal(2,"Minimum epoch duration (s).",0.5,5.0,0,0,0.2);
+DlgInteger(3,"Maximum number of epochs",400,36000,0,0,50); ' upper limit 10hr of 1s epochs
+DlgButton(0,"");                                        ' No <Cancel> button
+DlgButton(1,"OK",OKx%);
+DlgShow(twait,epmindur,nepmax%);
+return 1;
+end;
+
+func OKx%()                                             ' OK button of the Set up dialog
+DlgGetPos(dxra[drandx%],dyra[drandx%]);                 ' co-ords relative to application window
+return 0;
+end;
+
+func Cancelx%()                                         ' special <Cancel> and <OK> button for storing dialog-s coordinates when it is closed
+DlgGetPos(dxra[drandx%],dyra[drandx%]);                 ' co-ords relative to application window
+return 0;
+end;
+

@@ -99,6 +99,10 @@ object TrigsObj
     return MemSetItem(chan%, 0, self.start_event);
     end
     
+    func writeEvent(event)
+    return MemSetItem(self.chan%, 0, event)
+    end
+    
     func getFullEventCount()
     var nevents%;
     var tstart := 0.0;

@@ -41,6 +41,7 @@ DlgInteger(14, "pulse rep.(pps)", 1, 200);
 DlgReal(15, "Injected Current (nA)", -1, 1);
 DlgString(16, "Version", 256);
 DlgString(17, "Results subfolder", 256);
+
 var ok% := DlgShow(stgs.waveChan%, stgs.stimChan%, stgs.stimTrigChan%, stgs.duration, stgs.c12%, stgs.c34%, stgs.c56%, stgs.c78%, stgs.c90%, stgs.dB%, stgs.Hz%, stgs.msPD%, stgs.pulses%, stgs.pps%, stgs.nA, stgs.version$, stgs.folder$);
 
 if ok% = 1 then

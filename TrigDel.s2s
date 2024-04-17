@@ -1,0 +1,36 @@
+#include "libs/TrigsObj.s2s"
+#include "libs/ChanFuncs.s2s"
+#include "libs/FileObj.s2s"
+#include "libs/Counter.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.bringToFront();
+
+var TrigsObj pulseTrigs;
+var TrigsObj newStimTrigs;
+var interval;
+var tstart;
+var tend;
+var tcurrent;
+var tprevious;
+
+DlgCreate("Stim Trigs Creator");
+DlgChan(1, "Pulse Trig Chan", 2);
+DlgChan(2, "New Stim Chan", 2);
+DlgXValue(3, "Max inter-pulse interval");
+DlgXValue(4, "start time");
+DlgXValue(5, "end time");
+var ok% := DlgShow(pulseTrigs.chan%, newStimTrigs.chan%, interval, pulseTrigs.start_event, pulseTrigs.end_event);
+if ok% = 1 then
+    tprevious := pulseTrigs.start_event;
+    tcurrent := pulseTrigs.getNext();
+    newStimTrigs.writeEvent(tcurrent);
+    while pulseTrigs.start_event <= pulseTrigs.end_event do
+        tprevious := pulseTrigs.start_event;
+        tcurrent := pulseTrigs.getNext();
+        if (tcurrent - tprevious) < interval then
+                newStimTrigs.writeEvent(tcurrent);
+        endif
+    wend    
+endif

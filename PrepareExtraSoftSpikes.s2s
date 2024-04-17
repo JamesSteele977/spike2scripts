@@ -1,0 +1,15 @@
+#include "libs/FileObj.s2s"
+
+var FileObj file;
+file.setName(FileName$(3));
+file.setPath(FileName$(-1));
+file.bringToFront();
+
+ChanHide(8);
+ChanHide(7);
+ChanHide(6);
+Draw(0, 16);
+Optimise(5);
+ChanProcessAdd(5, 2); 'Add DC Remove to channel 5
+Optimise(5);
+Draw(0.930907, 16);
