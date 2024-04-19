@@ -3,7 +3,7 @@
 #include "libs/SettingsObj.s2s"
 
 var SettingsObj stgs;
-stgs.setPath("C:\\Users\\rishi\\Documents\\gitrepos2\\spike2scripts");
+stgs.setPath("/home/roselab/.cxoffice/spike2/dosdevices/c:/users/crossover/Documents/GitHub/spike2scripts/");
 stgs.setName("WaveAvg_settings.s2gx");
 stgs.openFile();
 stgs.readAll();
