@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MainIntra",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./intra_analysis.py",
+            "console": "integratedTerminal",
+            "args": "./test_excel.xlsx ./2016-10-26_1_tape1.smrx"
+        }
+    ]
+}

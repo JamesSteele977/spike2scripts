@@ -1,19 +1,16 @@
 import pandas as pd
 
 from typing import List
+import os
 
 column_headers: List[str] = [
-    "IGNORE", "TIME", "EVENT", "EVENT_SPEC", "FREQ", "PR", 
-    "PN", "PD", "ATTN", "IINJ", "PHARMA", "PHARMA_I", "INPUT_R", "NOTES"
+    "IGNORE[bool]", "TIME[float]", "EVENT[str]", "EVENT_SPEC[str]", "FREQ[float(hz)]", "PR[float(1/s)]", 
+    "PN[int]", "PD[float(ms)]", "ATTN[float(db)]", "IINJ[float(nA)]", "PHARMA[str]", "PHARMA_I[float(nA)]", 
+    "INPUT_R[float(MOhm)]", "NOTES[str]"
 ]
-data_types: List[str] = [
-    "bool", "float", "str", "str", "float (hz)", "float (1/s)", "int",
-    "float (ms)", "int (db)", "float (nA)", "str", "float (nA)", "float (MOhm)", "str"
-]
-df = pd.DataFrame([data_types], columns=column_headers)
+df = pd.DataFrame([[0 for j in column_headers]], columns=column_headers)
 
-df.index = ['FILENAME']
-df.index.name = 'FILENAME'
-
-excel_file_path = '/mnt/data/headers_excel.xlsx'
+excel_file_path = './test_excel.xlsx'
+if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
+    os.remove(excel_file_path)
 df.to_excel(excel_file_path, index=True)
